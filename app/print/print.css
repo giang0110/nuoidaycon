@@ -36,7 +36,7 @@
 
 .sheet__meta {
   font-size: 9.5pt;
-  color: #555;
+  color: #444;
   white-space: nowrap;
 }
 
@@ -165,7 +165,7 @@
 }
 
 .sheet__drawing-box {
-  border: 1pt dashed #777;
+  border: 1pt dashed #666;
   height: 105mm;
   border-radius: 2mm;
   break-inside: avoid;
@@ -197,7 +197,7 @@
   padding-top: 3mm;
   border-top: 0.5pt solid #ccc;
   font-size: 8.5pt;
-  color: #777;
+  color: #444;
 }
 
 /* Screen preview: show the sheet on a page-like surface. */

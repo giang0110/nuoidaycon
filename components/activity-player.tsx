@@ -60,7 +60,7 @@ function PhotoField() {
     <label className="flex flex-col gap-2">
       <span className="font-medium">{t.play.takePhoto}</span>
       {/* Photograph the WORK, not the child. */}
-      <span className="text-child-fg/60 text-sm text-pretty">{t.play.photoHint}</span>
+      <span className="text-child-muted text-sm text-pretty">{t.play.photoHint}</span>
       <input
         type="file"
         name="photos"
@@ -154,7 +154,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
       return (
         <div className="flex flex-col gap-6">
           <Story story={activity.payload.story} />
-          <ul className="text-child-fg/70 flex list-disc flex-col gap-1 pl-6 text-base">
+          <ul className="text-child-muted flex list-disc flex-col gap-1 pl-6 text-base">
             {activity.payload.guidance.promptHints.map((hint) => (
               <li key={hint}>{hint}</li>
             ))}
@@ -174,7 +174,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
             <li key={q.id} className="flex flex-col gap-3">
               <p className="font-medium text-pretty">{q.prompt}</p>
               {q.sentenceStarters.length > 0 && (
-                <ul className="text-child-fg/60 flex flex-col gap-0.5 text-base">
+                <ul className="text-child-muted flex flex-col gap-0.5 text-base">
                   {q.sentenceStarters.map((starter) => (
                     <li key={starter}>{starter}</li>
                   ))}

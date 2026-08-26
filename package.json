@@ -23,12 +23,13 @@
     "validate:content": "tsx scripts/validate-content.ts",
     "check:no-llm": "tsx scripts/check-no-llm-dependency.ts",
     "check:i18n": "tsx scripts/check-i18n-keys.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:no-llm && pnpm check:i18n && pnpm test:unit && pnpm validate:content",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:no-llm && pnpm check:i18n && pnpm audit:security && pnpm test:unit && pnpm validate:content",
     "db:up": "./scripts/local-db.sh up",
     "db:reset": "./scripts/local-db.sh reset",
     "db:down": "./scripts/local-db.sh down",
     "db:seed": "tsx scripts/seed-db.ts",
-    "worksheets:render": "tsx scripts/render-worksheets.ts"
+    "worksheets:render": "tsx scripts/render-worksheets.ts",
+    "audit:security": "tsx scripts/security-audit.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -41,6 +42,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",

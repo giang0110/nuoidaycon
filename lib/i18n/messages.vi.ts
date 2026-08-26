@@ -129,6 +129,18 @@ export const vi = {
     pinSet: 'Đã đặt mã PIN',
     pinNotSet: 'Chưa đặt mã PIN',
   },
+  data: {
+    title: 'Dữ liệu của gia đình',
+    exportTitle: 'Tải về toàn bộ dữ liệu',
+    exportHint: 'Bao gồm hồ sơ các con, bài đã giao, bài con làm và ảnh bài làm.',
+    exportButton: 'Xuất dữ liệu',
+    exportReady: 'Dữ liệu đã sẵn sàng. Bố mẹ sao chép và lưu lại nhé.',
+    deleteTitle: 'Xoá tài khoản',
+    deleteHint:
+      'Xoá vĩnh viễn tài khoản, toàn bộ hồ sơ của con, bài đã giao và ảnh bài làm. Không khôi phục được.',
+    deleteConfirmLabel: 'Gõ XOA để xác nhận',
+    deleteButton: 'Xoá vĩnh viễn',
+  },
   assign: {
     title: 'Giao bài cho con',
     pickChild: 'Chọn bé',

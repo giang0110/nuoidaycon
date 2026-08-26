@@ -85,7 +85,7 @@ export default async function PlayPage({
                 href={`/play/${assignment.id}`}
                 className="bg-child-surface flex min-h-24 flex-col justify-center gap-1 rounded-2xl px-6 py-4 shadow-sm"
               >
-                <span className="text-child-fg/60 text-sm">
+                <span className="text-child-muted text-sm">
                   {t.activityType[snapshot.type as keyof typeof t.activityType]}
                 </span>
                 <span className="text-xl font-medium">{snapshot.title}</span>
@@ -111,10 +111,10 @@ export default async function PlayPage({
 
       {/* The only route out of child mode. */}
       <form action={lockChildModeAction} className="mt-auto pt-8">
-        <button type="submit" className="text-child-fg/60 min-h-11 text-sm underline">
+        <button type="submit" className="text-child-muted min-h-11 text-sm underline">
           {t.play.exit}
         </button>
-        <p className="text-child-fg/50 mt-1 text-xs">{t.play.exitHint}</p>
+        <p className="text-child-muted mt-1 text-xs">{t.play.exitHint}</p>
       </form>
     </section>
   );

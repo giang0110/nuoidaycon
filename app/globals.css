@@ -16,18 +16,23 @@
   --color-parent-surface: oklch(1 0 0);
   --color-parent-border: oklch(0.92 0.006 106);
   --color-parent-fg: oklch(0.27 0.012 106);
-  --color-parent-muted: oklch(0.55 0.012 106);
-  --color-parent-accent: oklch(0.58 0.13 168);
+  /* Darkened from L=0.55: axe found it below the 4.5:1 AA threshold. */
+  --color-parent-muted: oklch(0.44 0.012 106);
+  /* Used for white-on-accent buttons, so it must clear 4.5:1 the other way. */
+  --color-parent-accent: oklch(0.48 0.11 168);
 
   /* Child surface — warmer, higher contrast, larger by default */
   --color-child-bg: oklch(0.98 0.02 85);
   --color-child-surface: oklch(1 0 0);
   --color-child-fg: oklch(0.25 0.02 60);
-  --color-child-accent: oklch(0.7 0.16 55);
+  /* Explicit token rather than an opacity modifier: /60 of the foreground
+     silently fell below AA on the warm child background. */
+  --color-child-muted: oklch(0.42 0.02 60);
+  --color-child-accent: oklch(0.52 0.15 45);
 
   /* Feedback that explains rather than scolds (P6): no punitive red. */
-  --color-feedback-positive: oklch(0.63 0.13 155);
-  --color-feedback-neutral: oklch(0.68 0.1 240);
+  --color-feedback-positive: oklch(0.46 0.11 155);
+  --color-feedback-neutral: oklch(0.47 0.11 250);
 }
 
 @layer base {

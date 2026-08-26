@@ -22,9 +22,15 @@ Read these before changing anything. They are the contract, not background readi
 
 ## Status
 
-**Phase 2 — Database + Security.** The schema, RLS and storage security model are in
-place with an automated cross-tenant test matrix. No product features and no UI yet.
-MVP is Phases 0–7.
+**All nine phases complete — production-ready, not deployed.**
+
+Parents can sign up, create child profiles, browse and assign activities from a curated
+Vietnamese catalog, hand the device to a child in a PIN-gated child mode, review the
+work, and print worksheets. AI generation exists behind a mandatory parent approval
+gate and ships switched off.
+
+See [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md) for what a human still has to do,
+including an honest list of what has not been verified.
 
 ## Stack
 
@@ -54,7 +60,8 @@ Requires Node 22+ and pnpm 10+.
 | `pnpm db:up` / `db:reset` / `db:down` | Disposable local PostgreSQL for those tests |
 | `pnpm test:e2e` | Playwright |
 | `pnpm validate:content` | L1–L3 validation over seeded activities |
-| `pnpm check:no-llm` | Asserts no LLM dependency (decision A9) |
+| `pnpm check:no-llm` | Asserts one provider abstraction, all others banned |
+| `pnpm audit:security` | Static security audit (secrets, RLS, storage, CSP, logging) |
 | `pnpm check:i18n` | Asserts locale catalogues share a key shape |
 | **`pnpm verify`** | **Everything above except e2e — run before pushing** |
 

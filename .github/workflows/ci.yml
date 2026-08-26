@@ -38,9 +38,15 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      # Decision A9 / non-goal #1 — the MVP ships no AI. Lifted only at Phase 8.
-      - name: No LLM dependency
+      # Every non-Anthropic provider stays banned, and the Anthropic SDK must
+      # be imported by exactly one file (the provider adapter).
+      - name: Provider abstraction
         run: pnpm check:no-llm
+
+      # Secrets, service-role confinement, domain purity, RLS coverage,
+      # storage privacy, EXIF removal, CSP and logging hygiene.
+      - name: Security audit
+        run: pnpm audit:security
 
       - name: i18n key alignment
         run: pnpm check:i18n

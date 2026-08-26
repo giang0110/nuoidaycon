@@ -126,6 +126,17 @@ export const en: Messages = {
     pinSet: '',
     pinNotSet: '',
   },
+  data: {
+    title: '',
+    exportTitle: '',
+    exportHint: '',
+    exportButton: '',
+    exportReady: '',
+    deleteTitle: '',
+    deleteHint: '',
+    deleteConfirmLabel: '',
+    deleteButton: '',
+  },
   assign: {
     title: '',
     pickChild: '',
