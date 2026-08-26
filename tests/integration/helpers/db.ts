@@ -120,6 +120,13 @@ export interface Tenant {
   storagePath: string;
 }
 
+/**
+ * Probe templates created by seedTenant carry this prefix so catalog
+ * assertions can exclude them explicitly. The integration suites share one
+ * database, and a test fixture must never be mistaken for real content.
+ */
+export const PROBE_TEMPLATE_PREFIX = 'zz-probe-';
+
 let templateCounter = 0;
 
 /** Seed one tenant using the admin connection (as the seed loader would). */
@@ -138,7 +145,7 @@ export async function seedTenant(client: Client, label: string): Promise<Tenant>
   );
   const childId = child.rows[0].id as string;
 
-  const slug = `probe-activity-${(templateCounter += 1)}-${Date.now()}`;
+  const slug = `${PROBE_TEMPLATE_PREFIX}${(templateCounter += 1)}-${Date.now()}`;
   const template = await client.query(
     `insert into public.activity_templates
        (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,

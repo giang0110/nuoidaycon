@@ -5,8 +5,9 @@ import type {
   InterestRepository,
   ParentRepository,
   ProgressRepository,
+  TemplateRepository,
 } from '@/lib/data/repositories';
-import { toChild, toInterest, toParent, toProgress } from './mappers';
+import { toChild, toInterest, toParent, toProgress, toTemplate } from './mappers';
 
 /**
  * Supabase-backed repositories.
@@ -185,6 +186,43 @@ export function createProgressRepository(db: DB): ProgressRepository {
         .single();
       if (error) fail('progress.upsert', error);
       return toProgress(data);
+    },
+  };
+}
+
+export function createTemplateRepository(db: DB): TemplateRepository {
+  return {
+    async findById(templateId) {
+      const { data, error } = await db
+        .from('activity_templates')
+        .select('*')
+        .eq('id', templateId)
+        .maybeSingle();
+      if (error) fail('templates.findById', error);
+      return data ? toTemplate(data) : null;
+    },
+
+    async listApproved(query) {
+      // RLS already restricts this to approved global rows plus the caller's
+      // own drafts; the filters below are for the parent's browsing, not
+      // for security.
+      let q = db
+        .from('activity_templates')
+        .select('*')
+        .eq('status', 'approved')
+        .is('owner_id', null);
+
+      if (query?.type) q = q.eq('type', query.type);
+      if (query?.locale) q = q.eq('locale', query.locale);
+      if (query?.minDifficulty !== undefined) q = q.gte('difficulty', query.minDifficulty);
+      if (query?.maxDifficulty !== undefined) q = q.lte('difficulty', query.maxDifficulty);
+      if (query?.interestSlugs && query.interestSlugs.length > 0) {
+        q = q.overlaps('interest_tags', query.interestSlugs);
+      }
+
+      const { data, error } = await q.order('type').order('difficulty');
+      if (error) fail('templates.listApproved', error);
+      return (data ?? []).map(toTemplate);
     },
   };
 }

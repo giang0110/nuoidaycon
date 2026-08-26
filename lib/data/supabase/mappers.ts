@@ -144,3 +144,16 @@ export function toAssignment(row: Record<string, unknown>): Assignment {
     reviewedAt: (row.reviewed_at as string | null) ?? null,
   };
 }
+
+/**
+ * The stored `payload` column holds the COMPLETE validated Activity document,
+ * not just its type-specific part. The other columns are a denormalised
+ * projection for indexing and database constraints.
+ *
+ * Reading the document back verbatim means nothing is reconstructed — and a
+ * reconstruction is exactly where an ageBand or a response spec would get
+ * quietly invented.
+ */
+export function toActivityDocument(row: Record<string, unknown>): unknown {
+  return row.payload;
+}

@@ -170,7 +170,7 @@ describeDb('schema constraints', () => {
              (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
               difficulty, estimated_minutes, response_mode, payload, status, source,
               approved_by_parent_id, owner_id, policy_version)
-           values ('ai-unapproved-' || $2, 'reflection', 'Chưa duyệt', 'Nội dung AI chưa được duyệt.',
+           values ('zz-probe-ai-unapproved-' || $2, 'reflection', 'Chưa duyệt', 'Nội dung AI chưa được duyệt.',
                    7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb,
                    'approved', 'ai', null, $1, 'age-policy@2026-08-25')`,
           [T.parentId, RUN],
@@ -184,7 +184,7 @@ describeDb('schema constraints', () => {
            (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
             difficulty, estimated_minutes, response_mode, payload, status, source,
             owner_id, policy_version)
-         values ('ai-draft-ok-' || $2, 'reflection', 'Bản nháp', 'Nội dung AI đang chờ duyệt.',
+         values ('zz-probe-ai-draft-ok-' || $2, 'reflection', 'Bản nháp', 'Nội dung AI đang chờ duyệt.',
                  7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb,
                  'draft', 'ai', $1, 'age-policy@2026-08-25')
          returning id`,
@@ -199,7 +199,7 @@ describeDb('schema constraints', () => {
            (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
             difficulty, estimated_minutes, response_mode, payload, status, source,
             approved_by_parent_id, owner_id, policy_version)
-         values ('ai-approved-ok-' || $2, 'reflection', 'Đã duyệt', 'Nội dung AI đã được duyệt.',
+         values ('zz-probe-ai-approved-ok-' || $2, 'reflection', 'Đã duyệt', 'Nội dung AI đã được duyệt.',
                  7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb,
                  'approved', 'ai', $1, $1, 'age-policy@2026-08-25')
          returning id`,
@@ -215,7 +215,7 @@ describeDb('schema constraints', () => {
              (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
               difficulty, estimated_minutes, response_mode, payload, status, source,
               approved_by_parent_id, policy_version)
-           values ('seed-with-approver-' || $2, 'reflection', 'Sai', 'Seed không có người duyệt.',
+           values ('zz-probe-seed-with-approver-' || $2, 'reflection', 'Sai', 'Seed không có người duyệt.',
                    7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb,
                    'approved', 'seed', $1, 'age-policy@2026-08-25')`,
           [T.parentId, RUN],
@@ -230,7 +230,7 @@ describeDb('schema constraints', () => {
              (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
               difficulty, estimated_minutes, response_mode, payload, status, source,
               owner_id, policy_version)
-           values ('seed-owned-' || $2, 'reflection', 'Sai', 'Seed phải là nội dung toàn cục.',
+           values ('zz-probe-seed-owned-' || $2, 'reflection', 'Sai', 'Seed phải là nội dung toàn cục.',
                    7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb,
                    'approved', 'seed', $1, 'age-policy@2026-08-25')`,
           [T.parentId, RUN],

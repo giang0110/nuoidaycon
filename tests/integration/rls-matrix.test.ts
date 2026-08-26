@@ -318,7 +318,7 @@ describeDb('cross-tenant RLS matrix', () => {
            (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
             difficulty, estimated_minutes, response_mode, payload, status, source,
             owner_id, approved_by_parent_id, policy_version)
-         values ('a-private-draft-' || $2, 'reflection', 'Bản nháp', 'Nội dung đang chờ duyệt.',
+         values ('zz-probe-a-private-draft-' || $2, 'reflection', 'Bản nháp', 'Nội dung đang chờ duyệt.',
                  7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb, 'draft', 'ai',
                  $1, $1, 'age-policy@2026-08-25')
          on conflict (slug) do nothing`,
@@ -327,7 +327,7 @@ describeDb('cross-tenant RLS matrix', () => {
       const r = await asParent(
         db,
         B.parentId,
-        `select id from public.activity_templates where slug = 'a-private-draft-' || $1`,
+        `select id from public.activity_templates where slug = 'zz-probe-a-private-draft-' || $1`,
         [RUN],
       );
       expect(r.rowCount).toBe(0);
@@ -374,7 +374,7 @@ describeDb('cross-tenant RLS matrix', () => {
         `insert into public.activity_templates
            (slug, type, title, instructions, min_age, max_age, grade_min, grade_max,
             difficulty, estimated_minutes, response_mode, payload, status, source, policy_version)
-         values ('client-forged-' || $1, 'reflection', 'Tự tạo', 'Nội dung do client tạo ra.',
+         values ('zz-probe-client-forged-' || $1, 'reflection', 'Tự tạo', 'Nội dung do client tạo ra.',
                  7, 9, 'grade_2', 'grade_3', 2, 10, 'text', '{}'::jsonb,
                  'approved', 'seed', 'age-policy@2026-08-25')`,
         [RUN],
@@ -402,7 +402,7 @@ describeDb('cross-tenant RLS matrix', () => {
       const r = await asParent(
         db,
         A.parentId,
-        `insert into public.interests (slug, label_vi) values ('forged-' || $1, 'X')`,
+        `insert into public.interests (slug, label_vi) values ('zz-probe-forged-' || $1, 'X')`,
         [RUN],
       );
       expect(r.error).toBeDefined();
