@@ -38,9 +38,20 @@ export default async function ChildPage({ params }: { params: Promise<{ childId:
             {age} {t.child.yearsOld} · {t.grade[child.grade]} · {t.ageBand[band.key]}
           </p>
         </div>
-        <Link href={`/children/${child.id}/edit`} className="text-parent-accent text-sm underline">
-          {t.child.edit}
-        </Link>
+        <div className="flex flex-col items-end gap-1">
+          <Link
+            href={`/children/${child.id}/edit`}
+            className="text-parent-accent text-sm underline"
+          >
+            {t.child.edit}
+          </Link>
+          <Link
+            href={`/children/${child.id}/history`}
+            className="text-parent-accent text-sm underline"
+          >
+            {t.history.title}
+          </Link>
+        </div>
       </header>
 
       {interests.length > 0 && (

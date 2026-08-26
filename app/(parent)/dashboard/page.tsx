@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { createClient, requireParentId } from '@/lib/supabase/server';
-import { createChildRepository, createParentRepository } from '@/lib/data/supabase/repositories';
+import {
+  createAssignmentRepository,
+  createChildRepository,
+  createParentRepository,
+} from '@/lib/data/supabase/repositories';
 import { DEFAULT_LOCALE, getMessages } from '@/lib/i18n';
 
 export default async function DashboardPage() {
@@ -12,6 +16,19 @@ export default async function DashboardPage() {
     createParentRepository(db).findById(parentId),
     createChildRepository(db, parentId).listByParent(parentId),
   ]);
+
+  const assignmentRepo = createAssignmentRepository(db);
+  const perChild = await Promise.all(
+    children.map(async (child) => ({
+      child,
+      awaiting: await assignmentRepo.listForChild(child.id, { statuses: ['submitted'] }),
+      open: await assignmentRepo.listForChild(child.id, { statuses: ['assigned', 'in_progress'] }),
+    })),
+  );
+
+  const awaiting = perChild.flatMap(({ child, awaiting: list }) =>
+    list.map((assignment) => ({ child, assignment })),
+  );
 
   return (
     <>
@@ -28,18 +45,54 @@ export default async function DashboardPage() {
           </Link>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {children.map((child) => (
-            <li key={child.id}>
-              <Link
-                href={`/children/${child.id}`}
-                className="border-parent-border bg-parent-surface flex min-h-14 items-center rounded-xl border px-4"
-              >
-                {child.displayName}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* The strongest call to action on the screen (UX_FLOW.md §5). */}
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-medium">
+              {t.review.awaiting}
+              {awaiting.length > 0 ? ` (${awaiting.length})` : ''}
+            </h2>
+            {awaiting.length === 0 ? (
+              <p className="text-parent-muted text-sm">{t.review.none}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {awaiting.map(({ child, assignment }) => {
+                  const snapshot = assignment.contentSnapshot as { title: string };
+                  return (
+                    <li key={assignment.id}>
+                      <Link
+                        href={`/assignments/${assignment.id}`}
+                        className="border-parent-accent bg-parent-accent/5 flex min-h-14 flex-col justify-center rounded-xl border px-4 py-2"
+                      >
+                        <span className="font-medium">{snapshot.title}</span>
+                        <span className="text-parent-muted text-sm">{child.displayName}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-medium">{t.child.listTitle}</h2>
+            <ul className="flex flex-col gap-2">
+              {perChild.map(({ child, open }) => (
+                <li key={child.id}>
+                  <Link
+                    href={`/children/${child.id}`}
+                    className="border-parent-border bg-parent-surface flex min-h-14 items-center justify-between rounded-xl border px-4"
+                  >
+                    <span>{child.displayName}</span>
+                    <span className="text-parent-muted text-sm">
+                      {open.length > 0 ? `${open.length} ${t.play.activities}` : ''}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
       )}
     </>
   );
