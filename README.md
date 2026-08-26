@@ -22,8 +22,9 @@ Read these before changing anything. They are the contract, not background readi
 
 ## Status
 
-**Phase 1 — Technical Foundation.** The application shell builds, tests and deploys; no
-product features are implemented yet. MVP is Phases 0–7.
+**Phase 2 — Database + Security.** The schema, RLS and storage security model are in
+place with an automated cross-tenant test matrix. No product features and no UI yet.
+MVP is Phases 0–7.
 
 ## Stack
 
@@ -49,12 +50,32 @@ Requires Node 22+ and pnpm 10+.
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` / `pnpm format` | ESLint / Prettier |
 | `pnpm test:unit` | Vitest unit tests (no database needed) |
-| `pnpm test:integration` | Vitest integration tests (needs local Supabase) |
+| `pnpm test:integration` | Database security tests (needs `TEST_DATABASE_URL`) |
+| `pnpm db:up` / `db:reset` / `db:down` | Disposable local PostgreSQL for those tests |
 | `pnpm test:e2e` | Playwright |
 | `pnpm validate:content` | L1–L3 validation over seeded activities |
 | `pnpm check:no-llm` | Asserts no LLM dependency (decision A9) |
 | `pnpm check:i18n` | Asserts locale catalogues share a key shape |
 | **`pnpm verify`** | **Everything above except e2e — run before pushing** |
+
+### Running the database security tests
+
+The cross-tenant RLS matrix runs against a **disposable local PostgreSQL** — never a
+hosted project:
+
+```bash
+pnpm db:up                 # prints TEST_DATABASE_URL
+export TEST_DATABASE_URL="postgresql://postgres@127.0.0.1:55432/nuoidaycon_test"
+pnpm test:integration
+pnpm db:down               # when finished
+```
+
+Without `TEST_DATABASE_URL` the suites skip — except in CI, where a guard test fails
+rather than let a missing database look like a pass.
+
+`supabase/tests/bootstrap.sql` recreates just enough of Supabase's `auth` and `storage`
+schemas for vanilla PostgreSQL to run the real policies. It lives outside
+`supabase/migrations/` so it can never reach a project.
 
 ### Running Playwright in a sandbox
 
@@ -71,9 +92,11 @@ PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e
 the safety validators are plain functions over interfaces, with **no** imports of
 Supabase, Next.js or React — enforced by ESLint, not by discipline. `lib/data` holds
 repository interfaces and their Supabase implementations. Authorisation is Row Level
-Security, deny-by-default, with the service-role key barred from every request path.
-Assignments store an immutable snapshot of the activity, and answer keys are stripped
-server-side before anything reaches the child's browser.
+Security: RLS is enabled on all twelve tables, `anon` holds no privilege at all, the
+curated catalog is read-only for clients at the privilege level, and the service-role key
+is barred from every request path. Assignments store an immutable snapshot of the
+activity — enforced by a database trigger, not by convention — and answer keys are
+stripped server-side before anything reaches the child's browser.
 
 ## Layout
 
@@ -84,7 +107,7 @@ lib/domain/     pure: activity schema, policy, engine, safety validators
 lib/data/       repository interfaces + Supabase implementations
 lib/i18n/       message catalogues (vi primary, en keys present)
 content/seeds/  curated activities, validated in CI
-supabase/       migrations (schema + RLS) and the seed loader
+supabase/       migrations (schema, functions, RLS, storage) + local test shim
 tests/          unit · integration · e2e
 scripts/        CI guards and the content validator
 ```

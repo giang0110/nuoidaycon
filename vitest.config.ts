@@ -6,6 +6,10 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./', import.meta.url)) },
   },
   test: {
+    // Integration tests share one disposable database and apply DDL, so test
+    // files must not run concurrently. Unit tests are fast enough that losing
+    // parallelism costs nothing here.
+    fileParallelism: false,
     projects: [
       {
         resolve: { alias: { '@': fileURLToPath(new URL('./', import.meta.url)) } },
@@ -21,9 +25,11 @@ export default defineConfig({
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
           environment: 'node',
-          // Integration tests talk to a local Supabase; they are opt-in so a
-          // clean checkout without a database still passes `pnpm test:unit`.
+          // Integration tests talk to a disposable local PostgreSQL; they are
+          // opt-in via TEST_DATABASE_URL so a clean checkout without a
+          // database still passes `pnpm test:unit`.
           testTimeout: 30_000,
+          hookTimeout: 60_000,
         },
       },
     ],
