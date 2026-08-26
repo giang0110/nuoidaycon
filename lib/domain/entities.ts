@@ -24,8 +24,17 @@ export const ACTIVITY_TYPES: readonly ActivityType[] = [
   'situation_judgment',
 ];
 
-export type GradeLevel =
-  'preschool' | 'grade_1' | 'grade_2' | 'grade_3' | 'grade_4' | 'grade_5' | 'grade_6';
+export const GRADE_LEVELS = [
+  'preschool',
+  'grade_1',
+  'grade_2',
+  'grade_3',
+  'grade_4',
+  'grade_5',
+  'grade_6',
+] as const;
+
+export type GradeLevel = (typeof GRADE_LEVELS)[number];
 
 export type AssignmentStatus = 'assigned' | 'in_progress' | 'submitted' | 'reviewed' | 'skipped';
 export type ContentStatus = 'draft' | 'in_review' | 'approved' | 'archived';

@@ -18,6 +18,7 @@ export const hasDatabase = TEST_DATABASE_URL.length > 0;
 
 const MIGRATIONS_DIR = resolve(process.cwd(), 'supabase/migrations');
 const BOOTSTRAP = resolve(process.cwd(), 'supabase/tests/bootstrap.sql');
+const SEED_DIR = resolve(process.cwd(), 'supabase/seed');
 
 export async function connectAdmin(): Promise<Client> {
   const client = new Client({ connectionString: TEST_DATABASE_URL });
@@ -44,6 +45,12 @@ export async function applySchema(client: Client): Promise<string[]> {
       .sort();
     for (const file of files) {
       await client.query(readFileSync(resolve(MIGRATIONS_DIR, file), 'utf8'));
+    }
+    // Reference data the application expects to exist.
+    for (const seed of readdirSync(SEED_DIR)
+      .filter((f) => f.endsWith('.sql'))
+      .sort()) {
+      await client.query(readFileSync(resolve(SEED_DIR, seed), 'utf8'));
     }
     return files;
   } finally {

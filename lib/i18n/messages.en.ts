@@ -2,8 +2,9 @@
  * English catalogue — keys present, translations deliberately empty.
  *
  * PRODUCT_SPEC.md non-goal #13: the i18n layer ships in the MVP, the English
- * content does not. `scripts/check-i18n-keys.ts` fails if this file drifts out
- * of shape with the Vietnamese catalogue.
+ * content does not. `SELECTABLE_LOCALES` excludes any locale whose catalogue is
+ * incomplete, so English can never be offered in a picker until it is
+ * translated. `scripts/check-i18n-keys.ts` fails if this drifts out of shape.
  */
 import type { Messages } from './messages.vi';
 
@@ -20,8 +21,20 @@ export const en: Messages = {
     confirm: '',
     retry: '',
   },
-  nav: { home: '', children: '', library: '', settings: '', assign: '' },
-  marketing: { tagline: '', ctaSignUp: '', ctaLogIn: '', privacy: '', safety: '' },
+  nav: {
+    home: '',
+    children: '',
+    library: '',
+    settings: '',
+    assign: '',
+  },
+  marketing: {
+    tagline: '',
+    ctaSignUp: '',
+    ctaLogIn: '',
+    privacy: '',
+    safety: '',
+  },
   activityType: {
     handwriting: '',
     drawing_prompt: '',
@@ -30,5 +43,85 @@ export const en: Messages = {
     reflection: '',
     situation_judgment: '',
   },
-  error: { generic: '', notFound: '' },
+  error: {
+    generic: '',
+    notFound: '',
+    unauthorized: '',
+  },
+  auth: {
+    signUpTitle: '',
+    signUpSubtitle: '',
+    logInTitle: '',
+    email: '',
+    password: '',
+    displayName: '',
+    submitSignUp: '',
+    submitLogIn: '',
+    logOut: '',
+    forgotPassword: '',
+    forgotTitle: '',
+    forgotSubtitle: '',
+    sendResetLink: '',
+    resetSent: '',
+    resetTitle: '',
+    newPassword: '',
+    savePassword: '',
+    haveAccount: '',
+    noAccount: '',
+    invalidCredentials: '',
+    emailInUse: '',
+    weakPassword: '',
+    invalidEmail: '',
+  },
+  child: {
+    listTitle: '',
+    empty: '',
+    addFirst: '',
+    addAnother: '',
+    nickname: '',
+    nicknameHint: '',
+    birthMonth: '',
+    birthYear: '',
+    birthHint: '',
+    grade: '',
+    avatar: '',
+    avatarHint: '',
+    interests: '',
+    interestsHint: '',
+    create: '',
+    edit: '',
+    archive: '',
+    archiveConfirm: '',
+    archived: '',
+    yearsOld: '',
+    ageBand: '',
+    difficultyByType: '',
+  },
+  grade: {
+    preschool: '',
+    grade_1: '',
+    grade_2: '',
+    grade_3: '',
+    grade_4: '',
+    grade_5: '',
+    grade_6: '',
+  },
+  ageBand: {
+    early: '',
+    lower_primary: '',
+    upper_primary: '',
+    preteen: '',
+  },
+  settings: {
+    title: '',
+    account: '',
+    displayName: '',
+    safety: '',
+    dataTitle: '',
+  },
+  dashboard: {
+    title: '',
+    greeting: '',
+    noChildren: '',
+  },
 };

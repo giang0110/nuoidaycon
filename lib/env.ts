@@ -44,3 +44,18 @@ export function readServerEnv(source: Record<string, string | undefined>): Serve
 function formatIssues(error: z.ZodError): string {
   return error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n');
 }
+
+/**
+ * The public environment, read from `process.env` in the one module allowed to
+ * touch it (decision A3, enforced by ESLint everywhere else).
+ *
+ * The `NEXT_PUBLIC_*` names are referenced as literals rather than looked up
+ * dynamically, because Next.js inlines them at build time for the client
+ * bundle and a computed key would not be replaced.
+ */
+export function getPublicEnv(): PublicEnv {
+  return readPublicEnv({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+}
