@@ -85,7 +85,7 @@ const eslintConfig = [
 
   // Scripts legitimately read env directly and may use the service-role key.
   {
-    files: ['scripts/**/*.ts', 'supabase/**/*.ts', 'lib/env.ts', '*.config.*'],
+    files: ['scripts/**/*.ts', 'supabase/**/*.ts', 'lib/env.ts', 'lib/ai/config.ts', '*.config.*'],
     rules: {
       'no-restricted-properties': 'off',
       'no-restricted-syntax': 'off',

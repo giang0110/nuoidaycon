@@ -381,13 +381,17 @@ describeDb('cross-tenant RLS matrix', () => {
       );
       expect(insert.error, 'client INSERT into the catalog must be refused').toBeDefined();
 
+      // Phase 8 grants DML so parents can own AI drafts, so seed rows are now
+      // refused by POLICY rather than by privilege: the draft policies require
+      // `owner_id = auth.uid() AND source = 'ai'`, and seed rows have neither.
+      // Either way the client cannot touch curated content.
       const update = await asParent(
         db,
         A.parentId,
         `update public.activity_templates set title = 'tampered' where id = $1`,
         [A.templateId],
       );
-      expect(update.error, 'client UPDATE of the catalog must be refused').toBeDefined();
+      expect(update.error ?? update.rowCount, 'seed content must not be editable').toBe(0);
 
       const del = await asParent(
         db,
@@ -395,7 +399,13 @@ describeDb('cross-tenant RLS matrix', () => {
         `delete from public.activity_templates where id = $1`,
         [A.templateId],
       );
-      expect(del.error, 'client DELETE of the catalog must be refused').toBeDefined();
+      expect(del.error ?? del.rowCount, 'seed content must not be deletable').toBe(0);
+
+      const stillThere = await db.query(
+        'select title from public.activity_templates where id = $1',
+        [A.templateId],
+      );
+      expect((stillThere.rows[0] as { title: string }).title).not.toBe('tampered');
     });
 
     it('rejects client writes to the interests lookup', async () => {

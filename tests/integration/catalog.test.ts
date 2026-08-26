@@ -151,12 +151,21 @@ describeDb('seeded catalog', () => {
   });
 
   it('cannot be modified by a parent', async () => {
+    // Phase 8 grants DML on this table so parents can own AI drafts, so seed
+    // rows are refused by POLICY (owner_id is null, source is not 'ai') rather
+    // than by privilege. Zero rows affected is the refusal.
     const update = await asParent(
       db,
       parentId,
       `update public.activity_templates set title = 'x' where source = 'seed' and ${REAL}`,
     );
-    expect(update.error).toBeDefined();
+    expect(update.error ?? update.rowCount).toBe(0);
+
+    const untouched = await db.query<{ n: string }>(
+      `select count(*)::text as n from public.activity_templates
+        where source = 'seed' and title = 'x'`,
+    );
+    expect(Number(untouched.rows[0]!.n)).toBe(0);
   });
 
   it('every situation_judgment carries a trusted-adult path', async () => {

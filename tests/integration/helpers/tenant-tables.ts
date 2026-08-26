@@ -43,6 +43,7 @@ export const COVERED_TABLES: readonly TableCoverage[] = [
   },
   { table: 'content_reports', kind: 'tenant', clientOps: ['select', 'insert', 'update', 'delete'] },
   { table: 'audit_events', kind: 'append', clientOps: ['select', 'insert'] },
+  { table: 'ai_generation_events', kind: 'append', clientOps: ['select', 'insert'] },
   { table: 'activity_templates', kind: 'catalog', clientOps: ['select'] },
   { table: 'interests', kind: 'lookup', clientOps: ['select'] },
 ];
@@ -53,4 +54,5 @@ export const FORCED_TABLES: readonly string[] = [
   'submission_assets',
   'assignment_reviews',
   'content_reports',
+  'ai_generation_events',
 ];

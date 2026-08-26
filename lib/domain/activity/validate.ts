@@ -35,6 +35,26 @@ export function validateReferential(activity: Activity): ValidationFailure[] {
   const push = (rule: string, path: string, detail: string) =>
     failures.push({ layer: 'L2', rule, path, detail });
 
+  // AI content may exist as a draft, but may never be APPROVED without an
+  // approving parent. Same rule as the database constraint (PRODUCT_SPEC.md
+  // §11.3) and as assertAssignable — three layers, one rule.
+  if (activity.provenance.source === 'ai' && activity.status === 'approved') {
+    if (!activity.provenance.approvedByParentId) {
+      push(
+        'provenance.ai_approved_without_parent',
+        'provenance.approvedByParentId',
+        'approved AI content must record the parent who approved it',
+      );
+    }
+    if (!activity.provenance.approvedAt) {
+      push(
+        'provenance.ai_approved_without_timestamp',
+        'provenance.approvedAt',
+        'approved AI content must record when it was approved',
+      );
+    }
+  }
+
   if (activity.audience.minAge > activity.audience.maxAge) {
     push('audience.range', 'audience', 'minAge must be <= maxAge');
   }

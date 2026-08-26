@@ -48,18 +48,48 @@ describe('L1 — structural validation', () => {
   });
 });
 
-describe('AI provenance requires a parent approval at the schema layer', () => {
-  it('rejects AI content with no approving parent', () => {
-    const bad = clone(reflectionFixture) as unknown as { provenance: Record<string, unknown> };
+describe('AI provenance: a draft may exist, an APPROVED activity may not lack an approver', () => {
+  it('accepts an AI draft with no approving parent — drafts must be representable', () => {
+    const draft = clone(reflectionFixture) as unknown as {
+      provenance: Record<string, unknown>;
+      status: string;
+    };
+    draft.status = 'draft';
+    draft.provenance = {
+      source: 'ai',
+      model: 'some-model',
+      promptTemplateId: 'reflection-v1',
+      promptTemplateVersion: '1.0.0',
+      generatedAt: '2026-08-26T00:00:00Z',
+    };
+    expect(activitySchema.safeParse(draft).success).toBe(true);
+  });
+
+  it('rejects APPROVED AI content with no approving parent (L2)', () => {
+    const bad = clone(reflectionFixture) as unknown as {
+      provenance: Record<string, unknown>;
+      status: string;
+    };
+    bad.status = 'approved';
     bad.provenance = {
       source: 'ai',
       model: 'some-model',
       promptTemplateId: 'reflection-v1',
       promptTemplateVersion: '1.0.0',
       generatedAt: '2026-08-26T00:00:00Z',
-      // approvedByParentId deliberately missing
-      approvedAt: '2026-08-26T00:00:00Z',
     };
+    const result = validateActivity(bad);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failures.some((f) => f.rule === 'provenance.ai_approved_without_parent')).toBe(
+        true,
+      );
+    }
+  });
+
+  it('still rejects an incomplete AI provenance block', () => {
+    const bad = clone(reflectionFixture) as unknown as { provenance: Record<string, unknown> };
+    bad.provenance = { source: 'ai', model: 'some-model' }; // missing template id/version
     expect(activitySchema.safeParse(bad).success).toBe(false);
   });
 

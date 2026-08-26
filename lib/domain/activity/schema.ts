@@ -244,15 +244,21 @@ const provenanceSchema = z.discriminatedUnion('source', [
     promptTemplateVersion: z.string().min(1),
     generatedAt: z.string().min(1),
     /**
-     * Required. An AI activity with no approving parent fails to VALIDATE.
+     * Present only once a parent has approved.
      *
-     * This is a safety layer, NOT a security boundary — types are erased at
-     * runtime and a value from JSON.parse is not checked by anything. The
-     * boundary is assertAssignable() plus the database constraint
-     * (PRODUCT_SPEC.md §11.3).
+     * Optional at THIS layer because a draft must be representable — an AI
+     * activity exists, and is validated, before anyone approves it. The rule
+     * that matters is conditional and lives in L2: AI content with
+     * `status: 'approved'` MUST carry an approver. That mirrors the database
+     * constraint exactly (`source <> 'ai' or status <> 'approved' or
+     * approved_by_parent_id is not null`).
+     *
+     * Making these unconditionally required looked stronger and was wrong: it
+     * made the draft state unrepresentable, which would have pushed the
+     * pipeline into bypassing validation for drafts — the opposite of safe.
      */
-    approvedByParentId: z.string().min(1),
-    approvedAt: z.string().min(1),
+    approvedByParentId: z.string().min(1).optional(),
+    approvedAt: z.string().min(1).optional(),
   }),
 ]);
 

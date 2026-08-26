@@ -69,8 +69,8 @@ describeDb('RLS matrix coverage', () => {
     expect(stale, 'The matrix references tables that were dropped.').toEqual([]);
   });
 
-  it('matches the twelve-table model in the specification', () => {
-    expect(liveTables).toHaveLength(12);
+  it('matches the specified table model — twelve for the MVP plus the Phase 8 audit', () => {
+    expect(liveTables).toHaveLength(13);
     expect(liveTables).not.toContain('households');
     expect(liveTables).not.toContain('household_members');
   });
@@ -109,16 +109,38 @@ describeDb('RLS matrix coverage', () => {
     expect(result.rows, 'anon must hold no privilege on any application table').toEqual([]);
   });
 
-  it('grants no write privilege on the curated catalog to authenticated', async () => {
-    const result = await db.query<{ table_name: string; privilege_type: string }>(
-      `select table_name, privilege_type
-         from information_schema.role_table_grants
-        where grantee = 'authenticated'
-          and table_schema = 'public'
-          and table_name in ('activity_templates', 'interests')
-          and privilege_type <> 'SELECT'`,
+  it('grants no write privilege on the interests lookup', async () => {
+    const result = await db.query<{ privilege_type: string }>(
+      `select privilege_type from information_schema.role_table_grants
+        where grantee = 'authenticated' and table_schema = 'public'
+          and table_name = 'interests' and privilege_type <> 'SELECT'`,
     );
-    expect(result.rows, 'the catalog must be read-only for clients').toEqual([]);
+    expect(result.rows, 'reference data must be read-only for clients').toEqual([]);
+  });
+
+  /**
+   * Phase 8 grants DML on activity_templates so parents can own AI drafts.
+   * Seed content stays unwritable — every draft policy requires
+   * `owner_id = auth.uid() AND source = 'ai'`, and seed rows have a null owner,
+   * so the policy fails closed against them. The privilege is broad; the policy
+   * is what makes it safe, and rls-matrix proves it at runtime.
+   */
+  it('gates every catalog write policy on ownership and AI provenance', async () => {
+    const result = await db.query<{
+      policyname: string;
+      qual: string | null;
+      with_check: string | null;
+    }>(
+      `select policyname, qual, with_check from pg_policies
+        where schemaname = 'public' and tablename = 'activity_templates'
+          and cmd <> 'SELECT'`,
+    );
+    expect(result.rows.length).toBeGreaterThan(0);
+    for (const row of result.rows) {
+      const clause = `${row.qual ?? ''} ${row.with_check ?? ''}`;
+      expect(clause, `${row.policyname} must check ownership`).toMatch(/owner_id/);
+      expect(clause, `${row.policyname} must be limited to AI content`).toMatch(/ai/);
+    }
   });
 
   it('grants no UPDATE or DELETE on the audit trail', async () => {

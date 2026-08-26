@@ -1,18 +1,29 @@
 /**
  * Decision A9 / non-goal #1 (docs/product/PRODUCT_SPEC.md §8, §10).
  *
- * The MVP is Phases 0–7 and ships no AI. Making that a CI check rather than a
- * matter of discipline is the whole point: scope creep into AI is the largest
- * risk to both the schedule and the child-safety story.
+ * ── LIFTED AT PHASE 8 ──────────────────────────────────────────────────────
+ * Through Phase 7 this check failed the build if ANY LLM SDK appeared in the
+ * dependency tree. Phase 8 adds `@anthropic-ai/sdk` deliberately, in the same
+ * change that adds the pipeline, so the Anthropic SDK is now allowed.
  *
- * This check is lifted DELIBERATELY at Phase 8, in the same pull request that
- * adds the SDK — never by drift, and never by quietly editing this list.
+ * The check is NOT deleted. Its job changes rather than ending:
+ *
+ *   1. Every OTHER provider stays banned. AI_CONTENT_RULES.md requires a single
+ *      provider abstraction, and a second SDK appearing in the tree means
+ *      someone bypassed it.
+ *   2. The Anthropic SDK must be imported by exactly ONE file
+ *      (lib/ai/anthropic-provider.ts). Scattered SDK calls are the thing the
+ *      abstraction exists to prevent, and a lint rule cannot see a transitive
+ *      import — this can.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+/** The one permitted SDK, and the one file allowed to import it. */
+const ALLOWED_SDK = '@anthropic-ai/sdk';
+const ALLOWED_IMPORTER = 'lib/ai/anthropic-provider.ts';
+
 const BANNED_PACKAGES = [
-  '@anthropic-ai/sdk',
   '@anthropic-ai/bedrock-sdk',
   '@anthropic-ai/vertex-sdk',
   'openai',
@@ -77,7 +88,50 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log(`✓ no-llm-dependency: clean (${BANNED_PACKAGES.length} packages checked)`);
+  // The provider abstraction is only real if it is the sole import site.
+  const importers = findSdkImporters();
+  const strays = importers.filter((file) => file !== ALLOWED_IMPORTER);
+  if (strays.length > 0) {
+    console.error(`\n✗ ${ALLOWED_SDK} is imported outside the provider adapter.\n`);
+    for (const file of strays) console.error(`    ${file}`);
+    console.error(
+      `\n  AI_CONTENT_RULES.md requires ONE provider abstraction. Add what you need\n` +
+        `  to the ContentProvider interface and implement it in ${ALLOWED_IMPORTER}.\n`,
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `✓ llm-dependency: ${BANNED_PACKAGES.length} providers banned; ` +
+      `${ALLOWED_SDK} imported only by ${ALLOWED_IMPORTER}`,
+  );
+}
+
+/** Walk the source tree for import sites of the permitted SDK. */
+function findSdkImporters(): string[] {
+  const roots = ['app', 'lib', 'components', 'scripts', 'tests'];
+  const found: string[] = [];
+
+  const walk = (dir: string): void => {
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = `${dir}/${entry}`;
+      if (statSync(full).isDirectory()) {
+        walk(full);
+      } else if (/\.tsx?$/.test(full)) {
+        const source = readFileSync(full, 'utf8');
+        if (new RegExp(`from ['\"]${escapeRegExp(ALLOWED_SDK)}`).test(source)) found.push(full);
+      }
+    }
+  };
+
+  for (const root of roots) walk(root);
+  return found;
 }
 
 function escapeRegExp(value: string): string {
