@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+/*
+ * Two moods, one system (docs/product/UX_FLOW.md §7).
+ *
+ * The parent app is calm, dense and efficient. Child mode is large, warm and
+ * spacious. They share these tokens and the same component primitives — child
+ * mode overrides scale and colour, never the component library.
+ */
+@theme {
+  --font-sans:
+    var(--font-be-vietnam), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Parent surface */
+  --color-parent-bg: oklch(0.99 0.004 106);
+  --color-parent-surface: oklch(1 0 0);
+  --color-parent-border: oklch(0.92 0.006 106);
+  --color-parent-fg: oklch(0.27 0.012 106);
+  --color-parent-muted: oklch(0.55 0.012 106);
+  --color-parent-accent: oklch(0.58 0.13 168);
+
+  /* Child surface — warmer, higher contrast, larger by default */
+  --color-child-bg: oklch(0.98 0.02 85);
+  --color-child-surface: oklch(1 0 0);
+  --color-child-fg: oklch(0.25 0.02 60);
+  --color-child-accent: oklch(0.7 0.16 55);
+
+  /* Feedback that explains rather than scolds (P6): no punitive red. */
+  --color-feedback-positive: oklch(0.63 0.13 155);
+  --color-feedback-neutral: oklch(0.68 0.1 240);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-parent-bg);
+    color: var(--color-parent-fg);
+    font-family: var(--font-sans);
+  }
+
+  /* Accessibility: no motion that cannot be disabled (UX_FLOW.md §4.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
