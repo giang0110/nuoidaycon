@@ -27,7 +27,8 @@
     "db:up": "./scripts/local-db.sh up",
     "db:reset": "./scripts/local-db.sh reset",
     "db:down": "./scripts/local-db.sh down",
-    "db:seed": "tsx scripts/seed-db.ts"
+    "db:seed": "tsx scripts/seed-db.ts",
+    "worksheets:render": "tsx scripts/render-worksheets.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

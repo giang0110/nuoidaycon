@@ -54,3 +54,6 @@ next-env.d.ts
 /supabase/.temp/
 /supabase/.branches/
 .env.test
+
+# rendered worksheets for print tests
+/tests/e2e/.worksheets/

@@ -114,6 +114,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Print tests load the real Worksheet component rendered with the real
+      # stylesheet; the print routes themselves need an authenticated parent.
+      - name: Render worksheets for print tests
+        run: pnpm worksheets:render
+
       - name: Run Playwright
         run: pnpm test:e2e
 

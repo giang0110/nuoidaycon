@@ -1,0 +1,232 @@
+/*
+ * Worksheet print styles — Phase 7.
+ *
+ * A4 portrait. Everything here is deliberately plain CSS rather than utility
+ * classes: print layout is easier to reason about, and to review, as a single
+ * stylesheet than scattered across `print:` variants.
+ */
+
+@page {
+  size: A4 portrait;
+  margin: 16mm 14mm;
+}
+
+.sheet {
+  font-family: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  color: #111;
+  max-width: 182mm;
+  margin: 0 auto;
+}
+
+.sheet__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12mm;
+  border-bottom: 1.5pt solid #111;
+  padding-bottom: 3mm;
+  margin-bottom: 6mm;
+}
+
+.sheet__title {
+  font-size: 15pt;
+  font-weight: 700;
+  margin: 0;
+}
+
+.sheet__meta {
+  font-size: 9.5pt;
+  color: #555;
+  white-space: nowrap;
+}
+
+.sheet__instructions {
+  font-size: 11.5pt;
+  line-height: 1.55;
+  margin: 0 0 6mm;
+}
+
+.sheet__section {
+  margin-bottom: 7mm;
+  break-inside: avoid;
+}
+
+.sheet__story p {
+  font-size: 12pt;
+  line-height: 1.75;
+  margin: 0 0 3mm;
+}
+
+.sheet__question {
+  font-size: 11.5pt;
+  line-height: 1.6;
+  margin: 0 0 2mm;
+  break-inside: avoid;
+}
+
+.sheet__choices {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4mm 4mm;
+}
+
+.sheet__choices li {
+  font-size: 11pt;
+  margin-bottom: 1.5mm;
+}
+
+.sheet__choices li::before {
+  content: '';
+  display: inline-block;
+  width: 4mm;
+  height: 4mm;
+  border: 1pt solid #333;
+  margin-right: 2.5mm;
+  vertical-align: -0.5mm;
+}
+
+/* Blank ruled lines for a written answer. */
+.sheet__answer-lines {
+  margin: 2mm 0 5mm;
+}
+
+.sheet__answer-lines div {
+  border-bottom: 0.75pt solid #999;
+  height: 9mm;
+}
+
+/* --- handwriting rulings -------------------------------------------------
+ *
+ * Vietnamese primary-school exercise books use `vở ô ly`: a square grid with
+ * a heavier baseline. Diacritics sit above and below the letter body, so the
+ * cell must leave room in both directions — a plain single line does not.
+ */
+.ruled {
+  --cell: 8mm;
+  margin: 0 0 6mm;
+}
+
+.ruled__row {
+  position: relative;
+  height: calc(var(--cell) * 4);
+  break-inside: avoid;
+  margin-bottom: 3mm;
+}
+
+.ruled--o_ly_grid .ruled__row {
+  background-image:
+    linear-gradient(to right, #cfe3f5 0.4pt, transparent 0.4pt),
+    linear-gradient(to bottom, #cfe3f5 0.4pt, transparent 0.4pt);
+  background-size: var(--cell) var(--cell);
+  border: 0.5pt solid #a9cbe8;
+}
+
+/* The writing baseline, heavier than the grid. */
+.ruled--o_ly_grid .ruled__row::after,
+.ruled--five_line .ruled__row::after,
+.ruled--four_line .ruled__row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--cell) * 3);
+  border-bottom: 1pt solid #6aa6d8;
+}
+
+.ruled--five_line .ruled__row,
+.ruled--four_line .ruled__row {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--cell) - 0.4pt),
+    #cfe3f5 calc(var(--cell) - 0.4pt),
+    #cfe3f5 var(--cell)
+  );
+  border-top: 0.5pt solid #a9cbe8;
+}
+
+.ruled--single_line .ruled__row {
+  height: calc(var(--cell) * 2);
+  border-bottom: 0.75pt solid #777;
+}
+
+/* The model word a child traces or copies, sitting on the baseline. */
+.ruled__model {
+  position: absolute;
+  left: 2mm;
+  top: calc(var(--cell) * 0.9);
+  font-size: 20pt;
+  line-height: calc(var(--cell) * 2.1);
+  letter-spacing: 0.5mm;
+}
+
+.ruled__model--trace {
+  color: #b9b9b9;
+}
+
+.sheet__drawing-box {
+  border: 1pt dashed #777;
+  height: 105mm;
+  border-radius: 2mm;
+  break-inside: avoid;
+}
+
+.sheet__checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4mm;
+}
+
+.sheet__checklist li {
+  font-size: 11pt;
+  margin-bottom: 2mm;
+}
+
+.sheet__checklist li::before {
+  content: '';
+  display: inline-block;
+  width: 4mm;
+  height: 4mm;
+  border: 1pt solid #333;
+  margin-right: 2.5mm;
+  vertical-align: -0.5mm;
+}
+
+.sheet__footer {
+  margin-top: 8mm;
+  padding-top: 3mm;
+  border-top: 0.5pt solid #ccc;
+  font-size: 8.5pt;
+  color: #777;
+}
+
+/* Screen preview: show the sheet on a page-like surface. */
+@media screen {
+  body {
+    background: #f4f4f5;
+  }
+  .sheet {
+    background: #fff;
+    padding: 16mm 14mm;
+    margin: 8mm auto;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+  }
+  .print-hint {
+    max-width: 210mm;
+    margin: 6mm auto 0;
+    padding: 0 14mm;
+    font-size: 10pt;
+    color: #555;
+  }
+}
+
+@media print {
+  .print-hint {
+    display: none;
+  }
+  .sheet {
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+  }
+}

@@ -202,6 +202,12 @@ export const vi = {
     untouched: 'Tuần này chưa có',
     verdictSummary: 'Bố mẹ đã nhận xét',
   },
+  print: {
+    date: 'Ngày',
+    hint: 'Bố mẹ dùng chức năng In của trình duyệt (Ctrl/Cmd + P), chọn khổ A4.',
+    answerSheet: 'Đáp án dành cho bố mẹ',
+    childSheet: 'Phiếu của con',
+  },
   library: {
     title: 'Thư viện hoạt động',
     filterType: 'Loại hoạt động',

@@ -200,6 +200,12 @@ export const en: Messages = {
     untouched: '',
     verdictSummary: '',
   },
+  print: {
+    date: '',
+    hint: '',
+    answerSheet: '',
+    childSheet: '',
+  },
   library: {
     title: '',
     filterType: '',
