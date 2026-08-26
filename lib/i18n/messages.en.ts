@@ -1,10 +1,5 @@
 /**
- * English catalogue — keys present, translations deliberately empty.
- *
- * PRODUCT_SPEC.md non-goal #13: the i18n layer ships in the MVP, the English
- * content does not. `SELECTABLE_LOCALES` excludes any locale whose catalogue is
- * incomplete, so English can never be offered in a picker until it is
- * translated. `scripts/check-i18n-keys.ts` fails if this drifts out of shape.
+ * English catalogue — keys present, translations deliberately empty (non-goal #13).
  */
 import type { Messages } from './messages.vi';
 
@@ -118,6 +113,61 @@ export const en: Messages = {
     displayName: '',
     safety: '',
     dataTitle: '',
+  },
+  safety: {
+    title: '',
+    pinTitle: '',
+    pinExplain:
+      'Mã PIN giữ cho ứng dụng ở đúng phần hoạt động của con. Đây KHÔNG phải khoá máy và KHÔNG phải lớp bảo mật: tài khoản của bố mẹ vẫn đang đăng nhập phía sau. Mọi dữ liệu đều được bảo vệ ở máy chủ, không phải bằng mã PIN này.',
+    pinLabel: '',
+    pinSave: '',
+    pinSaved: '',
+    pinFormat: '',
+    pinTooSimple: '',
+    pinSet: '',
+    pinNotSet: '',
+  },
+  assign: {
+    title: '',
+    pickChild: '',
+    suggestions: '',
+    why: '',
+    shuffle: '',
+    fromLibrary: '',
+    confirm: '',
+    assigned: '',
+    handOver: '',
+    exhausted: '',
+    contentUnavailable: '',
+    noChildren: '',
+  },
+  play: {
+    lockTitle: '',
+    enterPin: '',
+    pinWrong: '',
+    pinLocked: '',
+    pinNotSet: '',
+    unlock: '',
+    pickChild: '',
+    greeting: '',
+    todayCount: '',
+    activities: '',
+    nothingToday: '',
+    start: '',
+    continueLabel: '',
+    doneLabel: '',
+    submit: '',
+    takePhoto: '',
+    photoHint: '',
+    yourAnswer: '',
+    printThis: '',
+    finishedTitle: '',
+    backToList: '',
+    exit: '',
+    exitHint: '',
+    trustedAdult: '',
+    photoRejected: '',
+    chooseOne: '',
   },
   library: {
     title: '',

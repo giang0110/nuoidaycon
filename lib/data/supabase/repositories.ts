@@ -6,8 +6,10 @@ import type {
   ParentRepository,
   ProgressRepository,
   TemplateRepository,
+  AssignmentRepository,
+  SubmissionRepository,
 } from '@/lib/data/repositories';
-import { toChild, toInterest, toParent, toProgress, toTemplate } from './mappers';
+import { toAssignment, toChild, toInterest, toParent, toProgress, toTemplate } from './mappers';
 
 /**
  * Supabase-backed repositories.
@@ -223,6 +225,120 @@ export function createTemplateRepository(db: DB): TemplateRepository {
       const { data, error } = await q.order('type').order('difficulty');
       if (error) fail('templates.listApproved', error);
       return (data ?? []).map(toTemplate);
+    },
+  };
+}
+
+export function createAssignmentRepository(db: DB): AssignmentRepository {
+  return {
+    async findById(assignmentId) {
+      const { data, error } = await db
+        .from('assignments')
+        .select('*')
+        .eq('id', assignmentId)
+        .maybeSingle();
+      if (error) fail('assignments.findById', error);
+      return data ? toAssignment(data) : null;
+    },
+
+    async listForChild(childId, options) {
+      let q = db.from('assignments').select('*').eq('child_id', childId);
+      if (options?.statuses && options.statuses.length > 0) {
+        q = q.in('status', options.statuses);
+      }
+      const { data, error } = await q.order('assigned_at', { ascending: false });
+      if (error) fail('assignments.listForChild', error);
+      return (data ?? []).map(toAssignment);
+    },
+
+    async listRecentForChild(childId, withinDays) {
+      const since = new Date(Date.now() - withinDays * 86_400_000).toISOString();
+      const { data, error } = await db
+        .from('assignments')
+        .select('*')
+        .eq('child_id', childId)
+        .gte('assigned_at', since)
+        .order('assigned_at', { ascending: false });
+      if (error) fail('assignments.listRecentForChild', error);
+      return (data ?? []).map(toAssignment);
+    },
+
+    async create(assignment) {
+      const { data, error } = await db
+        .from('assignments')
+        .insert({
+          child_id: assignment.childId,
+          template_id: assignment.templateId,
+          assigned_by: assignment.assignedBy,
+          difficulty_at_assignment: assignment.difficultyAtAssignment,
+          content_snapshot: assignment.contentSnapshot,
+          snapshot_schema_version: assignment.snapshotSchemaVersion,
+          due_on: assignment.dueOn ?? null,
+        })
+        .select('*')
+        .single();
+      if (error) fail('assignments.create', error);
+      return toAssignment(data);
+    },
+
+    async updateStatus(assignmentId, status) {
+      const patch: Record<string, unknown> = { status };
+      if (status === 'in_progress') patch.started_at = new Date().toISOString();
+      if (status === 'submitted') patch.submitted_at = new Date().toISOString();
+      if (status === 'reviewed') patch.reviewed_at = new Date().toISOString();
+
+      const { data, error } = await db
+        .from('assignments')
+        .update(patch)
+        .eq('id', assignmentId)
+        .select('*')
+        .single();
+      if (error) fail('assignments.updateStatus', error);
+      return toAssignment(data);
+    },
+  };
+}
+
+export function createSubmissionRepository(db: DB): SubmissionRepository {
+  return {
+    async findByAssignment(assignmentId) {
+      const { data, error } = await db
+        .from('submissions')
+        .select('*')
+        .eq('assignment_id', assignmentId)
+        .maybeSingle();
+      if (error) fail('submissions.findByAssignment', error);
+      return data
+        ? {
+            id: data.id,
+            assignmentId: data.assignment_id,
+            answers: data.answers,
+            autoScore: data.auto_score,
+            submittedAt: data.submitted_at,
+          }
+        : null;
+    },
+
+    async create({ assignmentId, answers, autoScore }) {
+      const { data, error } = await db
+        .from('submissions')
+        .insert({ assignment_id: assignmentId, answers, auto_score: autoScore })
+        .select('*')
+        .single();
+      if (error) fail('submissions.create', error);
+      return {
+        id: data.id,
+        assignmentId: data.assignment_id,
+        answers: data.answers,
+        autoScore: data.auto_score,
+        submittedAt: data.submitted_at,
+      };
+    },
+
+    async delete(submissionId) {
+      // Assets cascade at the database level.
+      const { error } = await db.from('submissions').delete().eq('id', submissionId);
+      if (error) fail('submissions.delete', error);
     },
   };
 }

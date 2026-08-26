@@ -1,5 +1,5 @@
 onlyBuiltDependencies:
   - esbuild
-
+  - sharp
 ignoredBuiltDependencies:
   - unrs-resolver

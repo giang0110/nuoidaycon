@@ -87,8 +87,15 @@ export interface NewAssignment {
 export interface AssignmentRepository {
   findById(assignmentId: string): Promise<Assignment | null>;
   listForChild(childId: string, options?: { statuses?: string[] }): Promise<Assignment[]>;
-  /** Recent assignments, for the engine's cooldown and novelty scoring. */
-  listRecentForChild(childId: string, since: string): Promise<Assignment[]>;
+  /**
+   * Recent assignments, for the engine's cooldown and novelty scoring.
+   *
+   * Takes a window in DAYS rather than a timestamp: reading the clock is the
+   * data layer's job, not the caller's. A server component that computes
+   * `Date.now()` inline is both impure during render and an invitation to pass
+   * an inconsistent `now` to the engine.
+   */
+  listRecentForChild(childId: string, withinDays: number): Promise<Assignment[]>;
   create(assignment: NewAssignment): Promise<Assignment>;
   updateStatus(assignmentId: string, status: Assignment['status']): Promise<Assignment>;
 }
