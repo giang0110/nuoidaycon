@@ -1,28 +1,37 @@
 # AI Content Rules
 
-**Status:** Draft v1 — **DESIGN ONLY. NOT BUILT IN THE MVP.**
-**Date:** 2026-08-25
+**Status:** Draft v2 — **DESIGN ONLY. NOT BUILT BEFORE PHASE 8.**
+**Date:** 2026-08-25 (revised 2026-08-26)
 **Related:** [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) · [ACTIVITY_MODEL.md](./ACTIVITY_MODEL.md) · [CHILD_SAFETY.md](./CHILD_SAFETY.md)
 
 ---
 
 ## 1. Scope and status
 
-The MVP ships **no AI**. There is no model SDK, no API key, no generation endpoint, and
-a CI check asserts no LLM provider dependency exists in the tree
-([PRODUCT_SPEC.md](./PRODUCT_SPEC.md) non-goal #1, decision A9).
+The MVP (Phases 0–7) ships **no AI**. There is no model SDK, no API key, no generation
+endpoint, and a CI check asserts no LLM provider dependency exists in the tree
+([PRODUCT_SPEC.md](./PRODUCT_SPEC.md) non-goal #1, decision A9). AI personalisation is
+**Phase 8** of the roadmap, gated behind the preconditions in §8.
 
 This document exists so the MVP's data model and safety gates are shaped correctly
-*now*. Two things in the shipped MVP are load-bearing for this future pipeline and were
+*now*. Three things built before Phase 8 are load-bearing for this pipeline and were
 designed for it deliberately:
 
 - The canonical `Activity` schema is origin-agnostic — a seeded activity and a generated
   one are the same shape, validated by the same code.
-- `provenance.source === 'ai'` **structurally requires** `approvedByParentId` and
-  `approvedAt`, so an unapproved generation cannot be represented as a valid `Activity`
-  and therefore cannot be assigned.
+- `provenance.source === 'ai'` requires `approvedByParentId` and `approvedAt` at the zod
+  layer, and `assertAssignable()` re-checks it at runtime on the single assignment path.
+- `activity_templates.source` and `activity_templates.approved_by_parent_id` exist as
+  **real columns** from Phase 2, so the Phase 8 database constraint is a one-line
+  addition rather than a migration of live data.
 
-Nothing below may be implemented without a fresh plan and an explicit decision to lift
+> ⚠️ **The schema is not the boundary.** Requiring `approvedByParentId` makes unapproved
+> AI content fail to *validate*; it does not make it impossible to assign. TypeScript is
+> erased at runtime and is a safety layer, not a security boundary. Approval is enforced
+> at three levels — zod, the runtime domain guard, and a database constraint added in
+> Phase 8 — as set out in [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.3.
+
+Nothing below may be implemented before Phase 8 and an explicit decision to lift
 non-goal #1.
 
 ## 2. Non-negotiable invariants
@@ -33,10 +42,10 @@ These inherit from [CHILD_SAFETY.md](./CHILD_SAFETY.md) and hold at every stage.
 |---|---|
 | AI1 | **No child-facing generation.** A model is never invoked from child mode, never in response to a child's input, and never renders directly to a child. |
 | AI2 | **No conversational surface for anyone.** Generation is a request → draft → approve transaction, not a chat. There is no thread, no follow-up turn, no "regenerate with my comments" free-text channel. |
-| AI3 | **Parent-in-the-loop is mandatory and explicit.** Auto-approve, "trusted parent" bypass, bulk-approve-all, and scheduled auto-generation are permanently prohibited. |
+| AI3 | **Parent-in-the-loop is mandatory and explicit.** Auto-approve, "trusted parent" bypass, bulk-approve-all, and scheduled auto-generation are permanently prohibited. Enforced at three levels (zod → runtime guard → database constraint), not by types alone. |
 | AI4 | **Fail closed.** Any stage that errors, times out, or cannot validate discards the candidate. There is no degraded path that ships unvalidated content. |
 | AI5 | **No free-form parent prompt reaches the model as instructions.** Parent input is constrained fields, placed in a delimited untrusted block, never concatenated into the system prompt. |
-| AI6 | **Minimal child data in prompts.** Age band, grade, difficulty and interest **slugs** only. Never a name, never a birthdate, never free text a child wrote, never a submission, never a photo. |
+| AI6 | **Minimal child data in prompts.** Age band, grade, difficulty and interest **slugs** only. Never a name, never `birth_year`/`birth_month` or a derived age, never free text a child wrote, never a submission, never a photo. |
 | AI7 | **Full provenance.** Model id, prompt template id + version, policy version, generation timestamp, approving parent and approval timestamp are recorded on every AI activity and retained in the assignment snapshot. |
 | AI8 | **A kill switch exists.** A single server-side flag disables generation globally without a deploy. Existing approved content is unaffected. |
 
@@ -74,7 +83,7 @@ recorded; it is never passed forward "with warnings".
 
 **Input:** the child. **Output:** the immutable constraint set for this request.
 
-Derives the age band from birth month/year, then emits: permitted difficulty range,
+Derives the age band from `birth_year` + `birth_month` (never a stored age), then emits: permitted difficulty range,
 maximum story words, maximum sentence length, permitted response modes, prohibited
 topic list, and `policyVersion`. This is the same
 `lib/domain/policy/age-policies.ts` the MVP engine already uses — one policy, one
@@ -135,7 +144,9 @@ itself is retained only briefly for that review, never assigned.
 ### Stage 7 — Parent preview
 
 - The draft is stored as `activity_templates` with `status = 'draft'`, `source = 'ai'`,
-  `owner_id = <parent>`. RLS makes it visible **only** to that parent.
+  `owner_id = <parent>`, `approved_by_parent_id = null`. RLS makes it visible **only** to
+  that parent, and the Phase 8 database constraint refuses `status = 'approved'` on an
+  AI-sourced row with a null `approved_by_parent_id`.
 - The parent sees the full rendered activity exactly as the child would, plus a clear
   "created by AI, please review" label, the model and prompt-template version, and a
   reminder that they are the approver.
@@ -159,8 +170,8 @@ content a child saw to the model, prompt version and approving parent.
 interest slugs · locale · policy constraints · the prompt template itself · optionally a
 sanitised, length-capped parent note as untrusted data.
 
-**Never permitted in a prompt:** the child's name or nickname · birth month/year or exact
-age · avatar · any submission text · any uploaded photo · parent identity or email ·
+**Never permitted in a prompt:** the child's name or nickname · `birth_year`/`birth_month`
+or a derived age · avatar · any submission text · any uploaded photo · parent identity or email ·
 free-form parent instructions as directives · any prior generation's rejected output ·
 any data from another family.
 
@@ -191,9 +202,10 @@ Even after the pipeline ships, these remain barred:
 
 All must be true:
 
-1. The MVP has shipped and the seeded catalog is proven in real use.
+1. The MVP (Phases 0–7) has shipped and the seeded catalog is proven in real use.
 2. Non-goal #1 is explicitly lifted by the product owner (open question Q10).
 3. L1–L3 validation is battle-tested against the seeded library with a golden set in CI.
+3a. The **database-level eligibility constraint** (layer 3 of [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.3) is written, migrated and tested **before** the first generation call — not after.
 4. Legal review of child-data handling is complete ([CHILD_SAFETY.md](./CHILD_SAFETY.md) §8).
 5. A written model-provider data-processing agreement exists confirming no training on submitted data and appropriate retention.
 6. The kill switch, audit log, and rate/cost limits are built **before** the first generation call, not after.

@@ -1,8 +1,8 @@
-# Implementation Plan — Parent-Guided Learning App (MVP)
+# Implementation Plan — Parent-Guided Learning App
 
-**Date:** 2026-08-25
-**Status:** Ready for implementation — **not started**
-**Repository:** `ntgiang1235-ux/nuoidaycon` (empty; no commits)
+**Date:** 2026-08-25 (revised 2026-08-26 — Phase 0 cleanup)
+**Status:** Phase 0 complete. Phases 1–9 **not started.**
+**Repository:** `ntgiang1235-ux/nuoidaycon`
 **Branch:** `claude/parent-learning-app-spec-andbvx`
 
 **Specification:**
@@ -16,362 +16,371 @@
 
 ## Goal
 
-Ship a deterministic, parent-owned learning app: a parent creates child profiles,
-the system suggests age-appropriate activities from a curated Vietnamese library,
-the child completes them in a PIN-gated child mode, and the parent reviews the
-result — which adapts future difficulty. **No AI in this plan.**
+A parent-owned learning app: a parent creates child profiles, the system suggests
+age-appropriate activities from a curated Vietnamese library, the child completes them in
+a PIN-gated child mode, and the parent reviews the result — which adapts future
+difficulty.
+
+**MVP = Phases 0–7.** Phase 8 (AI personalisation) is a later increment, gated behind the
+preconditions in [AI_CONTENT_RULES.md](../../product/AI_CONTENT_RULES.md) §8. Phase 9
+(production hardening) is the release gate: it is run against the Phase 0–7 scope for the
+MVP launch, and re-run against Phase 8 before any AI reaches a parent.
 
 ## Working agreements
 
-1. **TDD throughout.** Write the failing test, watch it fail for the right reason, make it pass, refactor. Domain logic in `lib/domain` is pure and must reach ≥ 90% branch coverage.
-2. **Each phase is independently verifiable.** A phase ends with a green `pnpm verify` and a stated, checkable "done when". Later phases never retro-fix earlier phases' tests.
-3. **RLS is the authorisation boundary.** No feature is done until a cross-tenant denial test covers its tables.
-4. **The service-role key never appears in a request path** — migrations and seed scripts only.
-5. **No LLM dependency enters `package.json`.** CI enforces this.
-6. **Commit per task, not per phase.** Conventional commits. Push to the designated branch only.
-7. **`pnpm verify` = `typecheck && lint && test:unit && test:integration && validate:content && e2e`.**
+1. **TDD throughout.** Write the failing test, watch it fail for the right reason, make it pass, refactor. Pure domain logic in `lib/domain` reaches ≥ 90% branch coverage.
+2. **Each phase is independently verifiable** — a green `pnpm verify` and a stated, checkable "done when".
+3. **RLS is the authorisation boundary.** No feature is done until the cross-tenant matrix ([PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §11.4) covers its tables for read/insert/update/delete.
+4. **TypeScript is a safety layer, not a security boundary.** Every rule that matters is also enforced at runtime, and — where the data model allows — in the database.
+5. **The service-role key never appears in a request path** — migrations and seed scripts only, lint-banned elsewhere.
+6. **No LLM dependency in `package.json` through Phase 7.** CI enforces it; the check is lifted deliberately at Phase 8, never by drift.
+7. **Commit per task.** Conventional commits. Push only to the designated branch, and only when the user asks.
+8. **`pnpm verify` = `typecheck && lint && test:unit && test:integration && validate:content && test:e2e`.**
 
-## Phase dependency graph
+## Phase overview
+
+| Phase | Name | Ships | MVP |
+|---|---|---|---|
+| 0 | Specification | The five product docs + this plan | ✅ done |
+| 1 | Technical Foundation | Repo, toolchain, CI, i18n scaffolding, deploy target | ✅ |
+| 2 | Database + Security | Schema, RLS, cross-tenant matrix, Storage | ✅ |
+| 3 | Authentication + Child Profiles | Parent auth, app shell, child CRUD | ✅ |
+| 4 | Activity Engine | Canonical schema, validators, age policy, recommendation, seed content | ✅ |
+| 5 | Assignment + Child Mode + Submission | Assign flow, child mode, six players, submissions | ✅ |
+| 6 | Parent Review + Progress | Review, adaptation loop, history, deletion | ✅ |
+| 7 | Worksheets | Printables, handwriting ruling and font | ✅ |
+| 8 | AI Personalization | The eight-stage pipeline, gated | ❌ post-MVP |
+| 9 | Production Hardening | Privacy, a11y, perf, CI gates, release | ✅ (re-run after 8) |
 
 ```
-P0 ──┬─→ P1 ──┬─→ P2 (content authoring — parallel, on the critical path)
-     │        └─→ P6 ──┐
-     └─→ P3 ──┬─→ P4 ──┴─→ P5 ──→ P7 ──→ P8 ──→ P9 ──→ P10 ──→ P11
-              └────────────────────────────────↗
+P1 ──→ P2 ──→ P3 ──→ P5 ──→ P6 ──→ P7 ──→ P9 ──→ [MVP launch]
+       └────→ P4 ──────↑                          └──→ P8 ──→ P9 (re-run)
 ```
 
-P1 and P3 can proceed in parallel after P0. **P2 (authoring 60 activities) should start
-as soon as P1 lands and run alongside P3–P8** — it is the longest-lead item and the
-biggest risk to the schedule.
+P4 depends on P2 only for the `activity_templates` table and can otherwise run **in
+parallel with P3**. Content authoring inside P4 should start as early as possible and
+continue through P5–P7 — it is the longest-lead item, though no longer a gate (see
+"Content scope" below).
+
+## Content scope
+
+**~20–25 original Vietnamese activities for the MVP**, covering all six types across the
+age bands. This is a launch target, **not a precondition for implementation** — the
+engine, the players and the review loop are all built and tested against fixtures, not
+against a full library.
+
+All MVP content is **original work authored for this product**. Commercial book text,
+textbook extracts, and in-copyright stories are never copied. The `attribution` field
+exists for future public-domain or properly licensed material.
 
 ---
 
-## Phase 0 — Foundation & toolchain
+## Phase 0 — Specification ✅ COMPLETE
+
+**Deliverable:** an agreed product definition before any application code.
+
+Produced: [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md),
+[ACTIVITY_MODEL.md](../../product/ACTIVITY_MODEL.md),
+[CHILD_SAFETY.md](../../product/CHILD_SAFETY.md),
+[AI_CONTENT_RULES.md](../../product/AI_CONTENT_RULES.md),
+[UX_FLOW.md](../../product/UX_FLOW.md), and this plan.
+
+Locked corrections applied in the cleanup pass: households removed in favour of direct
+parent ownership · `birth_year` + `birth_month` canonical with age never persisted ·
+AI approval reframed as defence in depth rather than a type-system guarantee · RLS
+enabled everywhere with `FORCE` applied selectively and an explicit cross-tenant matrix ·
+roadmap consolidated to ten phases · content scope cut to ~20–25 original activities ·
+server-side EXIF removal · worksheet typography deferred to Phase 7.
+
+**Done when:** the five docs and this plan are internally consistent and the open
+questions have documented defaults. ✅
+
+---
+
+## Phase 1 — Technical Foundation
 
 **Deliverable:** an empty but fully wired application that builds, tests, lints and deploys.
 
 ### Tasks
-1. Initialise Next.js (App Router) + TypeScript `strict` + React; pnpm; Node version pinned.
-2. Tailwind CSS + shadcn/ui init; design tokens for the two moods (parent / child) from [UX_FLOW.md](../../product/UX_FLOW.md) §7; Vietnamese-diacritic-complete font loaded and verified.
-3. ESLint + Prettier; `import/no-restricted-paths` rule forbidding `lib/domain/**` from importing anything under `lib/data/**`, `lib/supabase/**`, `next/**` or `react` — decision A1 enforced by lint, not discipline.
-4. Vitest (unit + integration projects, coverage thresholds) and Playwright (Chromium, mobile viewport project) configured with one smoke test each.
-5. Directory skeleton per [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §10, with `.gitkeep`s.
-6. GitHub Actions: `ci.yml` running typecheck → lint → unit → build → e2e on PR and push.
-7. **`no-llm-dependency` CI check** — a script asserting no LLM provider SDK is anywhere in the dependency tree (decision A9, non-goal #1).
-8. Vercel project + Supabase project (Singapore region, pending Q5); `.env.example`; documented secrets. **No service-role key in any Vercel runtime environment.**
-9. `README.md` (setup, scripts, architecture pointer) and `CONTRIBUTING.md` (TDD, commit convention, content-authoring rules).
+1. Next.js (App Router) + TypeScript `strict` + React; pnpm; pinned Node version.
+2. Tailwind CSS + shadcn/ui; design tokens for the two moods (parent / child) from [UX_FLOW.md](../../product/UX_FLOW.md) §7. **UI** font with complete Vietnamese diacritic coverage — the *worksheet* handwriting font is Phase 7 and is not decided here.
+3. ESLint + Prettier; `import/no-restricted-paths` forbidding `lib/domain/**` from importing `lib/data/**`, `lib/supabase/**`, `next/**` or `react` — decision A1 enforced by lint. Lint rule banning `SUPABASE_SERVICE_ROLE_KEY` outside `scripts/` and `supabase/`.
+4. Vitest (unit + integration projects, coverage thresholds) and Playwright (Chromium + WebKit, mobile viewport project), one smoke test each.
+5. Directory skeleton per [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §10.
+6. i18n scaffolding: `lib/i18n` catalogue, `vi` primary, `en` keys present and untranslated, typed `t()`, CI check for missing/orphaned keys, lint rule against hardcoded user-facing literals.
+7. GitHub Actions `ci.yml`: typecheck → lint → unit → build → e2e.
+8. **`no-llm-dependency` CI check** (decision A9). Prove the guard works by adding a fake LLM package and watching CI fail.
+9. Vercel project + Supabase project (Singapore region, pending Q5); `.env.example`; documented secrets. **No service-role key in any Vercel runtime environment.**
+10. `README.md` and `CONTRIBUTING.md` (TDD, commit convention, content-authoring rules including the original-content requirement).
 
 ### Done when
-`pnpm verify` passes on a clean clone · CI is green on a PR · a placeholder page is live on a Vercel preview · the `no-llm-dependency` check fails when a fake LLM package is added (prove the guard works).
+`pnpm verify` passes on a clean clone · CI green on a PR · a placeholder page live on a Vercel preview · the `no-llm-dependency` check demonstrably fails on a planted dependency.
 
 ---
 
-## Phase 1 — Domain: canonical Activity schema (pure, no DB, no UI)
-
-**Deliverable:** the single source of truth for what an activity is, and the L1–L3 validators.
-
-### Tasks
-1. Enums: `ActivityType`, `GradeLevel`, `AgeBand`, `ResponseMode`, `ContentStatus`, `ContentSource`, `ReviewVerdict`, `InterestSlug`.
-2. `ActivityEnvelope` zod schema exactly as [ACTIVITY_MODEL.md](../../product/ACTIVITY_MODEL.md) §3 — including `safety.reviewedBy` required and the `provenance` discriminated union where `source: 'ai'` **requires** `approvedByParentId`. Add a test asserting an AI-sourced activity without an approving parent **fails to parse**; this is the preview gate expressed as a type.
-3. `ResponseSpec` discriminated union (§4).
-4. Six payload schemas (§5), with their refinements: handwriting character restriction, `answerKey ∈ choices`, `guided ⇒ options.length ≥ 2`, `trustedAdultPath` as `z.literal(true)`.
-5. `ActivitySchema` — the discriminated union over `type`; `z.infer` types exported.
-6. `lib/domain/policy/age-policies.ts` — the four bands from [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §4 as frozen data, plus `resolveBand(birthYear, birthMonth, now)`, `clampDifficulty`, `isResponseModeAllowed`, and `POLICY_VERSION`.
-7. **L2** `validateReferential(activity)` — cross-field checks not expressible in a single refinement, including difficulty-within-band and response-mode-within-band.
-8. **L3** `lib/domain/safety/`:
-   - denylist lexicon (Vietnamese + English), sourced from [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §5.1, in its own reviewable data file
-   - URL / email / phone / social-handle detectors
-   - PII-solicitation patterns
-   - Vietnamese reading-level heuristic (avg words/sentence + avg syllables/word) with **documented thresholds per band** and a note that it is a heuristic, not a validated metric (risk register)
-   - `runSafetyChecks(activity, band) → { ok, failures[] }`, **failing closed**
-9. `validateActivity(input) → Result<Activity, ValidationFailure[]>` composing L1 → L2 → L3. One implementation, later reused by the seed CI job, the DB write path and (if ever) the AI pipeline.
-10. Fixture library: one valid + several invalid fixtures per type.
-
-### Tests (all unit, no I/O)
-Valid fixtures parse · each invalid fixture fails with the expected error · `resolveBand` boundary cases (birthday month, band edges) · `clampDifficulty` never escapes the band · every §5.1 denylist category is caught · URLs/emails/phones caught in every string field including nested arrays · reading-level heuristic snapshot tests · **property test: for any generated activity, if `validateActivity` returns ok then difficulty ∈ band range and response mode ∈ band allowlist.**
-
-### Done when
-Coverage ≥ 90% branches on `lib/domain` · the AI-without-approval parse-failure test is green · no import of Supabase/Next/React exists anywhere under `lib/domain` (lint-enforced).
-
----
-
-## Phase 2 — Curated content library (parallelisable, longest lead)
-
-**Deliverable:** ≥ 60 Vietnamese activities that pass L1–L3, spread across the coverage matrix.
-
-> **Start this as soon as Phase 1 lands and run it alongside Phases 3–8.** Authoring, not
-> coding, is the critical path (risk register). Blocked on open question **Q3** (who authors,
-> and what rights we hold to any story text).
-
-### Tasks
-1. `content/seeds/vi/<type>/*.ts`, each default-exporting `satisfies Activity` so authoring errors surface in the editor.
-2. Author ≥ 10 per type: `handwriting`, `drawing_prompt`, `story_comprehension`, `story_summary`, `reflection`, `situation_judgment`.
-3. Interest vocabulary (`interests` seed): ~20 slugs with `label_vi` / `label_en`.
-4. `scripts/validate-content.ts` — runs L1–L3 over every seed, prints a coverage matrix, non-zero exit on any failure.
-5. **Coverage matrix assertion**: every `(type × ageBand × difficulty)` cell permitted by the age policy has ≥ 1 activity.
-6. Wire `validate:content` into CI ([CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §9 checks 1–4).
-7. Content authoring guide in `CONTRIBUTING.md`: tone, the `situation_judgment` scenario rules (§5.6), attribution requirements, the PR review checklist.
-
-### Done when
-`pnpm validate:content` is green · the coverage matrix has no empty permitted cell · every non-original story carries `attribution` · every seed carries `safety.reviewedBy` and a matching `policyVersion` · a deliberately unsafe fixture is rejected by CI (prove the guard works).
-
----
-
-## Phase 3 — Database schema, RLS and migrations
+## Phase 2 — Database + Security
 
 **Deliverable:** the full Postgres schema with proven tenant isolation. No UI.
 
 ### Tasks
-1. Migration `0001_init`: enums and all tables from [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §11 — `profiles`, `households`, `household_members`, `children`, `interests`, `child_interests`, `activity_templates`, `child_type_progress`, `assignments`, `submissions`, `submission_assets`, `assignment_reviews`, `content_reports`, `audit_events`.
-2. Constraints: `difficulty between 1 and 5` · `birth_month between 1 and 12` · unique `submissions.assignment_id` · unique `assignment_reviews.assignment_id` · `assignments.content_snapshot not null` · cascade deletes from `profiles` down.
-3. Indexes: `children(parent_id)` · `assignments(child_id, status)` · `assignments(child_id, template_id, assigned_at)` (cooldown lookup) · `activity_templates(type, status, locale)` · GIN on `activity_templates.interest_tags`.
-4. Migration `0002_rls`: `enable` **and** `force row level security` on every table; the ownership policies from §11; the `activity_templates` read policy; `interests` as authenticated-read-only; **nothing granted to `anon`**.
-5. Trigger: create a `profiles` row (and a single-member `households` row) on `auth.users` insert.
-6. Migration `0003_storage`: private `submissions` bucket + policy asserting `(storage.foldername(name))[1] = auth.uid()::text`; MIME and size limits.
-7. `scripts/seed-db.ts` — loads validated seeds into `activity_templates` (`owner_id = null`, `status = 'approved'`, `source = 'seed'`). Service-role key, script only.
-8. Local Supabase via CLI; `db:reset`, `db:migrate`, `db:seed` scripts.
-9. Generate TypeScript DB types; add a CI check that they are up to date with the migrations.
+1. Migration `0001_init`: the seven enums and the **twelve tables** of [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §11 — `profiles`, `children`, `interests`, `child_interests`, `activity_templates`, `child_type_progress`, `assignments`, `submissions`, `submission_assets`, `assignment_reviews`, `content_reports`, `audit_events`. **No `households` / `household_members`** — a child belongs to one parent via `children.parent_id`.
+2. Child birth data as `birth_year int` + `birth_month int check between 1 and 12`. **No date-of-birth column, and no age column anywhere.**
+3. `activity_templates.source` and `activity_templates.approved_by_parent_id` as **real columns**, not jsonb fields, so Phase 8 can constrain them.
+4. Constraints: `difficulty between 1 and 5` · unique `submissions.assignment_id` · unique `assignment_reviews.assignment_id` · `assignments.content_snapshot not null` · cascade deletes from `profiles` down.
+5. Indexes: `children(parent_id)` · `assignments(child_id, status)` · `assignments(child_id, template_id, assigned_at)` for cooldown lookups · `activity_templates(type, status, locale)` · GIN on `activity_templates.interest_tags`.
+6. Migration `0002_rls`: `ENABLE ROW LEVEL SECURITY` on **every** table; the ownership policies of §11.1; the `activity_templates` read policy; `interests` as authenticated-read-only; **nothing granted to `anon`**.
+7. **Selective `FORCE ROW LEVEL SECURITY`** per the table-by-table rationale in §11.2 — on `submissions`, `submission_assets`, `assignment_reviews`, `content_reports`; **not** on tables a trigger, migration or the seed loader legitimately writes as owner. Each `FORCE` carries a SQL comment stating why.
+8. Trigger: create the `profiles` row on `auth.users` insert. Trigger: initialise six `child_type_progress` rows on `children` insert.
+9. Migration `0003_storage`: private `submissions` bucket; policy asserting `(storage.foldername(name))[1] = auth.uid()::text`; MIME and size limits.
+10. Local Supabase via CLI; `db:reset`, `db:migrate`, `db:seed` scripts. Generated TypeScript DB types with a CI freshness check.
 
-### Tests (integration, against local Supabase)
-- Migrations apply from scratch and are idempotent.
-- **Cross-tenant matrix:** for *every* table, parent B gets zero rows on select and is denied insert/update/delete on parent A's data. This test is a template that must be extended whenever a table is added.
+### Tests — the cross-tenant RLS matrix is the deliverable
+Integration, against local Postgres, with parent **A**, parent **B**, and **anon**:
+- Every cell of the §11.4 matrix: `SELECT` returns zero rows; `INSERT` / `UPDATE` / `DELETE` raise or affect zero rows, per table.
+- A meta-test enumerating `information_schema.tables` that **fails if any table in `public` is not covered by the matrix** — this is what keeps the matrix honest as the schema grows.
 - `anon` reads nothing anywhere.
-- Approved global templates are readable by any authenticated parent; another parent's draft (`owner_id` set) is not.
+- Approved global templates readable by any authenticated parent; another parent's draft (`owner_id` set) is not.
+- Storage: B cannot read an object under A's prefix; a signed URL expires and is then unfetchable.
 - Deleting a `profiles` row cascades to children, assignments, submissions, assets.
-- Storage: parent B cannot read an object under parent A's prefix.
+- Migrations apply from scratch and are idempotent.
 
 ### Done when
-The cross-tenant matrix covers 100% of tables and is green · `db:reset && db:migrate && db:seed` produces a working local database.
+The matrix covers 100% of `public` tables and is green · the meta-test fails when a new uncovered table is added (prove it) · `db:reset && db:migrate` produces a working local database.
 
 ---
 
-## Phase 4 — Auth and the parent shell
+## Phase 3 — Authentication + Child Profiles
 
-**Deliverable:** a parent can sign up, log in, and see an empty authenticated app in Vietnamese.
+**Deliverable:** a parent can sign up, log in, and manage child profiles.
 
 ### Tasks
-1. Supabase clients: browser, server-component, route-handler. **No admin client.** Lint rule banning `SUPABASE_SERVICE_ROLE_KEY` outside `scripts/`.
-2. `(auth)` routes: `/login`, `/signup`, `/forgot-password`, `/reset-password` (shadcn/ui forms, zod validation, Vietnamese error messages).
+1. Supabase clients: browser, server-component, route-handler. **No admin client.**
+2. `(auth)` routes: `/login`, `/signup`, `/forgot-password`, `/reset-password`.
 3. Middleware: session refresh; `(parent)` and `(child)` redirect unauthenticated users to `/login`.
-4. `(parent)` layout: sidebar (desktop) / bottom tabs (mobile) with the four destinations from [UX_FLOW.md](../../product/UX_FLOW.md) §3, plus the persistent "Giao bài" action.
-5. i18n scaffolding: `lib/i18n` message catalogue, `vi` complete, `en` keys present and untranslated, typed `t()` with a CI check for missing/orphaned keys.
-6. `(marketing)` `/`, `/privacy`, `/safety` — the safety page is a plain-language summary of [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md).
-7. `/settings` account screen (display name, locale, sign out).
-8. Repository interface layer `lib/data/*Repository.ts` with Supabase implementations behind them (decision A1).
-9. Custom SMTP for auth email — **verify deliverability to Vietnamese mailboxes** (risk register).
+4. `(parent)` layout: sidebar (desktop) / bottom tabs (mobile), four destinations plus the persistent "Giao bài" action ([UX_FLOW.md](../../product/UX_FLOW.md) §3).
+5. `(marketing)` `/`, `/privacy`, `/safety` — the safety page is a plain-language summary of [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md).
+6. `/settings` account screen; custom SMTP configured and **deliverability to Vietnamese mailboxes verified**.
+7. Repository interface layer `lib/data/*Repository.ts` with Supabase implementations behind it (A1).
+8. `/children` list, `/children/new` wizard ([UX_FLOW.md](../../product/UX_FLOW.md) §4.1): nickname → **birth month + year** → grade → preset avatar → interests (3–6). **No exact date of birth. No child photo upload.** Resumable; interests skippable.
+9. `/children/[childId]` overview and `/children/[childId]/edit`; archive via `archived_at` rather than hard delete.
+10. Server actions with zod input validation; ownership enforced by RLS **and** re-asserted in the action.
+11. Age and band **derived at render time** from `birth_year` + `birth_month` — never stored, never cached.
 
 ### Tests
-Unit: form validation, i18n key coverage, middleware redirect logic.
-E2E: signup → confirm → login → land on `/dashboard` → sign out; unauthenticated access to `/dashboard` and `/play` redirects to `/login`; password reset round-trip.
-
-### Done when
-The signup → login → dashboard e2e passes against a real Supabase project · every visible string comes from the i18n catalogue (no hardcoded literals — lint-enforced).
-
----
-
-## Phase 5 — Child profiles and interests
-
-**Deliverable:** full child-profile CRUD with the onboarding wizard.
-
-### Tasks
-1. `/children` list; empty state per [UX_FLOW.md](../../product/UX_FLOW.md) §6.
-2. `/children/new` wizard, one question per screen ([UX_FLOW.md](../../product/UX_FLOW.md) §4.1): nickname → birth month/year → grade → preset avatar → interests (3–6 chips). **No exact birthdate. No photo upload.** Resumable; interests skippable.
-3. `/children/[childId]` overview and `/children/[childId]/edit`.
-4. Archive (soft delete via `archived_at`) rather than hard delete, so history survives.
-5. Server actions with zod input validation; ownership enforced by RLS *and* asserted in the action.
-6. `child_type_progress` rows initialised for all six types at creation, seeded from the band's midpoint difficulty.
-7. Age/band display derived at render time from birth month/year.
-
-### Tests
-Unit: wizard state machine, age derivation across month boundaries, interest min/max.
+Unit: form validation; **age derivation across month and year boundaries**; wizard state machine; i18n key coverage; middleware redirects.
 Integration: creating a child initialises exactly six progress rows; a child cannot be created with another parent's `parent_id`.
-E2E: create → edit → archive; archived children are excluded from assignment flows but their history remains readable.
+E2E: signup → confirm → login → dashboard → sign out; unauthenticated `/dashboard` and `/play` redirect to `/login`; password reset round-trip; create → edit → archive a child on a 360px viewport.
 
 ### Done when
-The full wizard e2e passes on a 360px viewport · no exact-birthdate field exists anywhere in the codebase.
+The signup and child-wizard e2e pass against a real Supabase project · **no date-of-birth field and no persisted age exist anywhere in the codebase** (asserted by a grep test) · every visible string comes from the i18n catalogue.
 
 ---
 
-## Phase 6 — Recommendation and difficulty engine (pure)
+## Phase 4 — Activity Engine
 
-**Deliverable:** the deterministic engine. Pure functions over repository interfaces; no DB, no UI.
+**Deliverable:** the canonical schema, the validators, the age policy, the deterministic
+recommendation engine, and the seed library. Pure functions plus content — no UI.
 
-### Tasks
-1. `ChildContext` type: age, band, grade, interests, per-type difficulty, recent history.
-2. `filterEligible(templates, ctx, now)` — the hard filter from [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §7 step 1: locale, `status = 'approved'`, age overlap, grade overlap, difficulty within band, cooldown not active.
-3. `scoreTemplate(template, ctx)` — `0.35 × interestOverlap + 0.30 × difficultyFit + 0.20 × typeRotation + 0.15 × novelty`, each sub-score its own tested function.
-4. `seededShuffle(items, seed)` — deterministic PRNG over `hash(childId, dateBucket, templateId, shuffleSeed)`.
-5. `suggestActivities(ctx, catalog, { count = 3, shuffleSeed = 0 })` — filter → score → tie-break → diversify to at most one per type.
-6. `applyReview(progress, verdict)` — the adaptation table from §7, clamped to the band.
-7. `applyCompletionSignal(progress, outcomes)` — the graceful degradation path: two consecutive incompletes lower difficulty by one.
-8. `explainSuggestion(template, ctx)` — the "why this was picked" string shown on the assign card.
+*Depends on Phase 2 only for the `activity_templates` table; otherwise parallel with Phase 3.*
 
-### Tests (unit only, fixtures only)
-- **Determinism:** 1,000 runs of `suggestActivities` on a fixed `(child, date, catalog)` return an identical ordering ([PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §9).
-- `shuffleSeed + 1` changes the result and is itself reproducible.
-- **Property test:** every suggestion is age-eligible, grade-eligible and difficulty-in-band, for arbitrary generated children and catalogs. A hard-filter failure can never be outscored.
-- Cooldown excludes recently assigned templates; type rotation prevents three of the same type.
-- Golden snapshots for a handful of representative children.
-- `applyReview`: `too_hard` drops immediately; `just_right` needs two consecutive; clamping at both band ends.
-- Empty-catalog and fully-exhausted-catalog cases return an explicit exhausted result, not an empty array.
+### 4a — Canonical schema and validators
+1. Enums; `ActivityEnvelope` per [ACTIVITY_MODEL.md](../../product/ACTIVITY_MODEL.md) §3; `ResponseSpec` §4; the six payload schemas §5 with their refinements (handwriting character restriction, `answerKey ∈ choices`, `guided ⇒ options.length ≥ 2`, `trustedAdultPath` as `z.literal(true)`).
+2. `lib/domain/policy/age-policies.ts` — the four bands from [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §4 as frozen data, plus `resolveBand(birthYear, birthMonth, now)`, `clampDifficulty`, `isResponseModeAllowed`, `POLICY_VERSION`.
+3. **L2** `validateReferential()`; **L3** `lib/domain/safety/` — denylist lexicon, URL/email/phone/handle detectors, PII-solicitation patterns, and the documented Vietnamese reading-level heuristic (avg words/sentence + avg syllables/word), **failing closed**.
+4. `validateActivity()` composing L1 → L2 → L3 — one implementation, reused by the seed CI job, the DB read path, and Phase 8.
+5. **`assertAssignable(activity, actingParentId)`** — the runtime guard of [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §11.3 layer 2. Checks `status === 'approved'`, and for `source === 'ai'` that an approving parent id is present and matches.
+6. **`toChildView(activity)`** — the projection of [ACTIVITY_MODEL.md](../../product/ACTIVITY_MODEL.md) §7.1, returning a distinct `ChildViewActivity` type stripped of answer keys, rationales, exemplar answers, `mustMention`, `isConstructive` and `parentNote`.
+
+### 4b — Recommendation and adaptation
+7. `ChildContext` — **derived** age, band, grade, interests, per-type difficulty, recent history.
+8. `filterEligible()` (hard filter), `scoreTemplate()` (the four weighted sub-scores), `seededShuffle()`, `suggestActivities()` (filter → score → tie-break → diversify), `explainSuggestion()`.
+9. `applyReview(progress, verdict)` and `applyCompletionSignal(progress, outcomes)`, both clamped to the band.
+
+### 4c — Seed content
+10. `content/seeds/vi/<type>/*.ts`, each default-exporting `satisfies Activity`.
+11. Author **~20–25 original activities** across all six types and the age bands. Original work only.
+12. Interest vocabulary seed (~20 slugs).
+13. `scripts/validate-content.ts` — runs L1–L3 over every seed, prints the coverage matrix, non-zero exit on failure. Wire into CI.
+14. `scripts/seed-db.ts` — loads validated seeds into `activity_templates` as `owner_id = null`, `status = 'approved'`, `source = 'seed'`. Service-role, script only.
+
+### Tests (unit + content validation)
+- Every valid fixture parses; every invalid fixture fails with the expected error.
+- **An AI-sourced activity without `approvedByParentId` fails zod validation**, *and* `assertAssignable` rejects the same object when it is cast past the compiler (`as unknown as Activity`) — proving the runtime guard, not the type system, does the work.
+- `toChildView` output contains no answer key, rationale, exemplar answer, `mustMention` or `isConstructive`, for all six types — property-tested over generated activities.
+- `resolveBand` boundary cases; `clampDifficulty` never escapes the band.
+- Every §5.1 denylist category caught; URLs/emails/phones caught in nested arrays; reading-level snapshots.
+- **Determinism:** 1,000 runs of `suggestActivities` on a fixed `(child, date, catalog)` return an identical ordering; `shuffleSeed + 1` changes it reproducibly.
+- **Property test:** every suggestion is age-eligible, grade-eligible and difficulty-in-band for arbitrary generated children and catalogs — a hard-filter failure can never be outscored.
+- Cooldown and type-rotation behaviour; empty and exhausted catalogs return an explicit exhausted result.
+- `applyReview`: `too_hard` drops immediately, `just_right` needs two consecutive, clamping at both band ends.
+- Every seed passes L1–L3; a deliberately unsafe fixture is rejected by CI.
 
 ### Done when
-Coverage ≥ 90% branches · the determinism and property tests are green · the engine module has zero imports outside `lib/domain`.
+≥ 90% branch coverage on `lib/domain` · no import of Supabase/Next/React under `lib/domain` (lint-enforced) · `pnpm validate:content` green · ~20–25 activities loaded into a local database by the seed script.
 
 ---
 
-## Phase 7 — Assignment lifecycle and the assign flow
+## Phase 5 — Assignment + Child Mode + Submission
 
-**Deliverable:** a parent can browse, preview and assign; snapshots are immutable.
+**Deliverable:** a parent can assign; a child can complete all six activity types and submit.
 
 ### Tasks
-1. `AssignmentRepository`, `TemplateRepository`, `ProgressRepository` implementations.
-2. `assignActivity` server action: re-validate the template through L1–L3, **deep-copy the payload into `content_snapshot`**, record `difficulty_at_assignment` and `snapshot_schema_version`, write an `audit_events` row.
-3. `/library` with filters (type, age, difficulty, interest, minutes) and cards.
-4. `/library/[templateId]` — the **shared `ActivityPreview` component**, rendering exactly what the child will see. Same component used by the assign flow and, later, the AI approval gate: one implementation, three call sites.
-5. `/assign` four-step flow ([UX_FLOW.md](../../product/UX_FLOW.md) §4.2): pick child → suggestions (with `explainSuggestion` and "Đổi gợi ý khác" incrementing `shuffleSeed`) → preview → confirm with optional due date.
-6. `/dashboard`: today · awaiting review · suggestions · recent — per [UX_FLOW.md](../../product/UX_FLOW.md) §5.
-7. `/assignments/[assignmentId]` parent view (submission section arrives in Phase 9).
-8. Catalog-exhausted state handled honestly per [UX_FLOW.md](../../product/UX_FLOW.md) §6.
-9. Enforce template immutability once `approved` — updates publish a new `version` ([ACTIVITY_MODEL.md](../../product/ACTIVITY_MODEL.md) §7).
+1. `/library` with filters; `/library/[templateId]` using the **shared `ActivityPreview` component** — the same component used by the assign flow and, in Phase 8, the AI approval gate.
+2. `/assign` four-step flow ([UX_FLOW.md](../../product/UX_FLOW.md) §4.2), with `explainSuggestion` on each card and "Đổi gợi ý khác" incrementing `shuffleSeed`.
+3. `assignActivity` server action: re-validate through L1–L3, **call `assertAssignable`**, deep-copy the payload into `content_snapshot`, record `difficulty_at_assignment` and `snapshot_schema_version`, write an `audit_events` row.
+4. `/dashboard` per [UX_FLOW.md](../../product/UX_FLOW.md) §5; catalog-exhausted state handled honestly.
+5. Enforce template immutability once `approved` — changes publish a new `version`.
+6. Child-mode PIN at `/settings/safety`, hashed, attempt-rate-limited, never logged, with the honest "this is not a device lock" copy.
+7. `(child)` route group: full screen, **no navigation**, no links out, no catalog, no search, single-child lock.
+8. `/play` PIN gate → child picker → today's cards; `/play/[assignmentId]` with the six renderers, **each fed `toChildView(snapshot)`** — never the raw snapshot.
+9. Photo upload: capture/select → optional client-side resize (bandwidth only) → **server-side decode and re-encode that discards EXIF and all metadata** → write to `{parent_id}/{child_id}/{submission_id}/…`. MIME and size validated server-side; the client is not trusted.
+10. `submitAssignment`: validate answers against the snapshot's `ResponseSpec`, write `submissions` + `submission_assets`, **auto-score server-side against the stored snapshot**, set status `submitted`.
+11. `/play/[assignmentId]/done` — warm completion, **no score shown to the child** (Q8), no timer anywhere. Exit requires the PIN.
+12. Offline resilience: answers held in local state and retried; never a raw error in front of a child.
 
 ### Tests
-Integration: assigning writes a snapshot equal to the template payload; **archiving or editing the template afterwards leaves the snapshot byte-identical**; a parent cannot assign to another parent's child.
-E2E: dashboard → assign → suggestions → preview → confirm → the assignment appears on the dashboard; "Đổi gợi ý khác" changes the suggestions.
+Unit: answer validation per response mode; auto-scoring; `auto_score` is `null` with no `choice` component.
+Integration: the snapshot equals the template payload at assign time, and **stays byte-identical after the template is edited or archived**; a parent cannot assign to another parent's child; **the stored asset contains no EXIF** (assert on a fixture image with GPS tags); a submission is readable only by the owning parent.
+E2E: **one per activity type** — PIN → open → complete → submit → done. Plus: no navigation element exists in child mode; leaving requires the PIN; a child cannot reach `/dashboard` or `/library` by URL while locked; **no child-facing network response contains an answer key** (asserted by intercepting responses in Playwright).
 
 ### Done when
-The snapshot-immutability test is green · assigning from a cold dashboard takes ≤ 4 taps.
+All six type e2e tests pass · the EXIF-stripping and answer-key-leak assertions are green · axe reports no violations on child routes.
 
 ---
 
-## Phase 8 — Child mode, activity players and submissions
-
-**Deliverable:** a child can complete all six activity types and submit work.
-
-### Tasks
-1. Child-mode PIN: set/change at `/settings/safety` with the honest explanatory copy from [UX_FLOW.md](../../product/UX_FLOW.md) §5; hashed at rest; attempt rate-limiting; never logged.
-2. `(child)` route group + layout: full screen, **no navigation**, no links out, no catalog, no search, single-child lock ([CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §6). Structurally separate from `(parent)`.
-3. `/play` PIN gate → child picker → today's cards.
-4. Six renderers, each reading from `content_snapshot`, never the live template:
-   - `HandwritingPlayer` — instructions, print link, photo capture
-   - `DrawingPromptPlayer` — prompt, checklist, photo capture
-   - `StoryComprehensionPlayer` — story with a text-size control, one question per screen
-   - `StorySummaryPlayer` — story + writing area with hints and sentence starters
-   - `ReflectionPlayer` — one question per screen, optional sentence starters
-   - `SituationJudgmentPlayer` — scenario → guided options or open text → gentle feedback; the `trustedAdultPath` is always visible
-5. Photo upload: capture/select → client-side resize → **EXIF strip** → signed upload to `{parent_id}/{child_id}/{submission_id}/…`; MIME and size validation server-side too.
-6. `submitAssignment` action: validate answers against the snapshot's `ResponseSpec`, write `submissions` + `submission_assets`, auto-score `choice` answers only, set status `submitted`.
-7. `/play/[assignmentId]/done` — warm completion, **no score shown to the child** (Q8), no timer anywhere.
-8. Exit to the parent app requires the PIN.
-9. Offline resilience: answers held in local state and retried; never a raw error in front of a child.
-10. Accessibility pass: ≥ 18px body with a size control, ≥ 48px targets, high contrast, dyslexia-friendly font option, keyboard operable, reduced-motion respected.
-
-### Tests
-Unit: answer validation per response mode; auto-scoring correctness; auto-score is `null` when there is no `choice` component; EXIF stripping.
-Integration: a submission is readable only by the owning parent; an asset under another parent's prefix is unreadable.
-E2E: **one per activity type** — PIN → open → complete → submit → done. Plus: no navigation element is present anywhere in child mode; leaving requires the PIN; a child cannot reach `/dashboard` or `/library` by URL while locked.
-
-### Done when
-All six type e2e tests pass · the "no nav chrome in child mode" assertion passes · axe reports no violations on child routes · no free-text destination other than the child's own submission exists (S2).
-
----
-
-## Phase 9 — Parent review and the adaptation loop
+## Phase 6 — Parent Review + Progress
 
 **Deliverable:** the loop closes — review changes what gets suggested next.
 
 ### Tasks
-1. `/assignments/[assignmentId]` review view ([UX_FLOW.md](../../product/UX_FLOW.md) §4.4): assigned content from the snapshot · text answers verbatim · multiple-choice with correct/incorrect and the parent-only `rationale` · photos via short-TTL signed URLs with zoom.
+1. `/assignments/[assignmentId]` review view ([UX_FLOW.md](../../product/UX_FLOW.md) §4.4): assigned content from the snapshot · text answers verbatim · multiple-choice with correct/incorrect and the **parent-only** answer key and rationale · photos via short-lived signed URLs.
 2. Score shown **to the parent only**, choice questions only.
-3. Verdict: three one-tap buttons (`Hơi dễ` / `Vừa sức` / `Hơi khó`) + optional note → writes `assignment_reviews`, sets status `reviewed`, calls `applyReview` and persists the new `child_type_progress`.
-4. Completion-signal degradation for unreviewed assignments (`applyCompletionSignal`), run on assignment creation.
-5. `/children/[childId]/history` — filterable history with verdicts.
-6. Difficulty per type surfaced as five dots on `/children/[childId]` — the one place adaptation is made legible to the parent.
-7. "Report content" → `content_reports`; archiving a template removes it from the catalog **without altering existing snapshots**.
-8. Dashboard "Chờ bố mẹ xem" queue as the primary call to action.
+3. Verdict: three one-tap buttons + optional note → writes `assignment_reviews`, sets `reviewed`, calls `applyReview`, persists `child_type_progress`.
+4. `applyCompletionSignal` for unreviewed assignments.
+5. **Delete a submission** — removes `submissions` + `submission_assets` rows, purges the Storage objects, writes an `audit_events` row, with a confirm step. Available from the review screen and the child's history.
+6. `/children/[childId]/history` — filterable, with verdicts.
+7. Difficulty per type as five dots on `/children/[childId]` — the one place adaptation is legible to the parent.
+8. "Report content" → `content_reports`; archiving a template removes it from the catalog **without altering existing snapshots**.
 
 ### Tests
-Integration: verdict → correct `child_type_progress` change, clamped at band edges; two consecutive incompletes lower difficulty; a signed URL expires and is not publicly fetchable.
-E2E: child submits → parent reviews `Hơi dễ` → the child's difficulty dot for that type increases → subsequent suggestions shift upward.
+Integration: verdict → correct `child_type_progress` change, clamped at band edges; two consecutive incompletes lower difficulty; **deleting a submission removes the Storage object and leaves the assignment intact**; a signed URL expires and is not fetchable unauthenticated.
+E2E: child submits → parent reviews `Hơi dễ` → the difficulty dot rises → subsequent suggestions shift upward. Parent deletes a submission and it disappears from history.
 
 ### Done when
-The full loop e2e (assign → complete → review → adapted suggestion) is green.
+The full loop e2e (assign → complete → review → adapted suggestion) is green, and submission deletion is verified down to the Storage object.
 
 ---
 
-## Phase 10 — Printable worksheets
+## Phase 7 — Worksheets
 
 **Deliverable:** every activity prints well on A4.
 
+*All handwriting typography decisions live here. **Nothing in Phases 1–6 may block on
+them** — the schema already carries the `ruling` enum, and screen renderers do not use
+the worksheet font.*
+
 ### Tasks
-1. `print/[assignmentId]` and `print/preview/[templateId]` — snapshot-driven, no app chrome.
-2. Print stylesheet: A4 portrait, correct margins, page-break control, header with activity title and child nickname.
-3. Per-type print layouts: `worksheet` (handwriting), `prompt_card` (drawing, reflection, situation), `reading` (comprehension, summary).
-4. Handwriting ruling renderers: `o_ly_grid`, `four_line`, `five_line`, `single_line`, with tracing guides and optional stroke-order marks — **blocked on open question Q4** (ruling choice + licensed diacritic-complete font).
-5. Print entry points from the library preview, the assignment view and the child card.
-6. Browser print dialog only — no PDF service, no server-side rendering pipeline.
+1. `print/[assignmentId]` and `print/preview/[templateId]` — snapshot-driven, no app chrome, **fed `toChildView` for the child's copy and the full snapshot for a parent answer sheet**.
+2. Print stylesheet: A4 portrait, margins, page-break control, header with activity title and child nickname.
+3. Per-type layouts: `worksheet`, `prompt_card`, `reading`.
+4. **Decide and implement the Vietnamese handwriting font and ruling here** — `o_ly_grid`, `four_line`, `five_line`, `single_line`, tracing guides, optional stroke-order marks. Requires a licensed font with complete diacritic coverage; selection is a Phase 7 task, not a prerequisite.
+5. Optional parent answer sheet for `story_comprehension`, clearly labelled, never printed with the child's copy by default.
+6. Browser print dialog only — no PDF service.
 
 ### Tests
-E2E: every type's print route renders without app chrome; Playwright print-media screenshots compared against baselines for each ruling style; diacritics render correctly at worksheet sizes; page-count estimate matches `printable.pageEstimate` within one page.
+E2E: every type's print route renders without app chrome; Playwright print-media snapshots per ruling style in Chromium and WebKit; diacritics render correctly at worksheet sizes; the child's printed copy contains no answer key; page count matches `printable.pageEstimate` within one page.
 
 ### Done when
-All six types have an approved print baseline · handwriting guides align correctly in Chromium and WebKit.
+All six types have approved print baselines in both browsers.
 
 ---
 
-## Phase 11 — Hardening, privacy and release readiness
+## Phase 8 — AI Personalization (post-MVP, gated)
 
-**Deliverable:** production-ready.
+**Deliverable:** the eight-stage pipeline of
+[AI_CONTENT_RULES.md](../../product/AI_CONTENT_RULES.md) §3.
+
+> **Do not start** until every precondition in [AI_CONTENT_RULES.md](../../product/AI_CONTENT_RULES.md) §8 holds, including an explicit decision to lift non-goal #1 (Q10).
 
 ### Tasks
-1. `/settings/data`: **export** (JSON + assets) and **account deletion** with cascade plus Storage prefix purge, per [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §3.
-2. Strict Content-Security-Policy with no third-party script origins; security headers; **verify no ad/analytics SDK is present** (S5).
-3. Full accessibility pass on parent and child routes; axe in CI.
-4. Error boundaries, empty and loading states from [UX_FLOW.md](../../product/UX_FLOW.md) §6; no raw error is ever shown in child mode.
-5. Performance: measure from a Vietnamese network profile; image optimisation; server components minimising round-trips.
-6. Rate limiting on auth, PIN attempts and uploads.
-7. Structured logging with **no child data**; error reporting scrubbed of content and identifiers.
-8. Complete the CI gate list from [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §9 (all seven checks).
-9. Operational docs: runbook, migration and rollback procedure, incident response for a content report.
-10. Final review against every non-goal in [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §8 — confirm none has crept in.
+1. **Build the safety infrastructure first:** kill switch, audit log, rate limits and cost caps — before the first generation call, not after.
+2. **Layer 3 of the defence in depth** ([PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §11.3): a CHECK constraint on `activity_templates` refusing `status = 'approved'` where `source = 'ai'` and `approved_by_parent_id is null`, plus a trigger on `assignments` insert asserting template eligibility. Migrated and tested **before** any generation.
+3. Stage 1 constrained request object — **no free-text prompt field**.
+4. Stage 2 age-policy resolution reusing `lib/domain/policy` unchanged.
+5. Stage 3 versioned, in-repo, human-reviewed prompt templates.
+6. Stage 4 structured-output generation; parent input only inside a delimited untrusted block; bounded retries and timeouts.
+7. Stages 5–6 reusing `validateActivity()` unchanged; fail closed.
+8. Stage 7 parent preview reusing the `ActivityPreview` component; approve / discard / regenerate; **no auto-approve in any form**; draft TTL.
+9. Stage 8 assignment via the existing snapshot path.
+10. Lift the `no-llm-dependency` CI check deliberately, in the same PR that adds the SDK.
+
+### Tests
+Golden-set regression (known-bad rejected, known-good accepted) · red-team prompt-injection suite over every parent-controlled field · **the database constraint rejects an approved AI row with a null approving parent, tested with direct SQL that bypasses the application entirely** · no child identifier appears in any prompt.
 
 ### Done when
-All seven CI gates are green · export and delete verified end-to-end · axe clean · the non-goal audit is signed off · the success criteria in [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §9 are all demonstrably met.
+The golden set and red-team suites are green, the DB constraint is proven by direct SQL, and the kill switch is verified to stop generation without a deploy.
 
 ---
 
-## Explicitly out of scope for this plan
+## Phase 9 — Production Hardening
 
-Everything in [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §8 "non-goals", and in
-particular: **all AI generation** ([AI_CONTENT_RULES.md](../../product/AI_CONTENT_RULES.md)
-is design-only), child accounts, co-parent or teacher sharing, notifications, payments,
-gamification, social features, native apps, an in-browser drawing canvas, audio, auto-grading
-of free text, English content, and an admin CMS.
+**Deliverable:** release-ready. Run against Phases 0–7 for the MVP launch; re-run against Phase 8 before any AI reaches a parent.
+
+### Tasks
+1. `/settings/data`: **export** (JSON + assets) and **account deletion** with cascade plus Storage prefix purge.
+2. Strict CSP with no third-party script origins; security headers; verify no ad or analytics SDK is present (S5).
+3. Full accessibility pass on parent and child routes; axe in CI.
+4. Error boundaries and the empty/loading states of [UX_FLOW.md](../../product/UX_FLOW.md) §6; no raw error ever shown in child mode.
+5. Performance measured from a Vietnamese network profile; image optimisation; round-trip reduction.
+6. Rate limiting on auth, PIN attempts and uploads.
+7. Structured logging with **no child data**; error reporting scrubbed of content and identifiers.
+8. Complete the CI gate list of [CHILD_SAFETY.md](../../product/CHILD_SAFETY.md) §9.
+9. Runbook, migration and rollback procedure, incident response for a content report.
+10. Final audit against every non-goal in [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §8 — confirm none has crept in.
+
+### Done when
+All CI gates green · export and delete verified end-to-end · axe clean · the non-goal audit signed off · the success criteria of [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §9 demonstrably met.
+
+---
+
+## Preserved architectural decisions
+
+Unchanged by the Phase 0 cleanup and binding on every phase:
+
+- Children have **no accounts** — they are profiles under a parent-owned authenticated account.
+- **Child mode is UX protection, not a security boundary**; all real enforcement is server-side.
+- Assignments carry an **immutable `content_snapshot`**.
+- Domain functions are **pure and independent of Supabase, Next.js and React** (lint-enforced).
+- The MVP engine is **deterministic**; there is **no unrestricted child-facing AI chat**, ever.
+- **Answer keys are Parent Mode only** — enforced by the server-side `toChildView()` projection.
+- **A parent can delete their child's submissions**, including the stored assets.
 
 ## Risks carried into implementation
 
-| Risk | Phase | Mitigation in this plan |
+| Risk | Phase | Mitigation |
 |---|---|---|
-| Content authoring is the true critical path | P2 | Parallelised from the end of P1; coverage matrix enforced in CI; **blocked on Q3** |
-| RLS misconfiguration leaks family data | P3 | Cross-tenant matrix over every table; forced RLS; service-role key lint-banned from request paths |
-| Small catalog feels repetitive | P2, P6 | Cooldowns, type rotation, novelty scoring; coverage matrix |
-| Vietnamese reading level has no standard metric | P1 | Documented heuristic with explicit thresholds; human review stays authoritative |
-| Print fidelity for diacritics and ruled guides | P10 | Dedicated phase; cross-browser print snapshots; **blocked on Q4** |
-| Auth email deliverability in Vietnam | P4 | Custom SMTP verified in P4; signup e2e is a release gate |
-| Scope creep into AI | all | Non-goal #1 plus the `no-llm-dependency` CI check from P0 |
-| Parent review fatigue starves adaptation | P9 | One-tap verdicts; completion-signal degradation when no verdict is given |
+| Small catalog feels repetitive at ~20–25 activities | 4 | Cooldowns, type rotation, novelty scoring; honest exhausted state; library growth is the top post-launch priority |
+| Content authoring is long-lead | 4 | Parallel with 3–7; fixtures, not real content, gate the engine and player tests |
+| RLS misconfiguration leaks family data | 2 | Cross-tenant matrix over read/insert/update/delete per table, plus a meta-test failing on any uncovered table |
+| Answer keys leaking to the child client | 4, 5 | `toChildView()` projection, property-tested, plus a Playwright network assertion |
+| EXIF/GPS in stored photos | 5 | Server-side decode/re-encode, asserted on a GPS-tagged fixture |
+| Vietnamese reading level has no standard metric | 4 | Documented heuristic with explicit thresholds; human review stays authoritative |
+| Print fidelity for diacritics and ruled guides | 7 | Contained entirely in Phase 7; nothing earlier depends on it |
+| Auth email deliverability in Vietnam | 3 | Custom SMTP verified in Phase 3; signup e2e is a release gate |
+| Scope creep into AI | 1–7 | `no-llm-dependency` CI check, lifted deliberately at Phase 8 |
+| Parent review fatigue starves adaptation | 6 | One-tap verdicts; completion-signal degradation |
 
-## Open questions that block specific phases
+## Open questions
 
-| # | Question | Blocks |
+Q3 (content rights) and Q4 (handwriting font/ruling) are **closed** — original content
+only, and typography deferred into Phase 7. The remainder have documented defaults in
+[PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §14 and block nothing:
+
+| # | Question | Phase |
 |---|---|---|
-| Q1 | Confirm the grade taxonomy (Vietnamese `lớp 1–6` as assumed) | P1 enums, P2 banding |
-| Q2 | Is the range really 4–12, or start at 6? | P2 authoring volume |
-| **Q3** | **Who authors the seed content, and what rights do we hold to any story text?** | **P2 — the critical path** |
-| **Q4** | **Handwriting ruling style and licensed diacritic-complete font** | **P10** |
-| Q5 | Data-residency requirement (Vietnam PDPD) vs a Singapore region | P0 region choice |
-| Q8 | Does the child ever see a score, or only the parent? | P8 completion screen |
-| Q9 | Retention policy for photo submissions | P11 export/delete |
-
-Q3 and Q4 should be answered before their phases begin. The rest have documented defaults
-in [PRODUCT_SPEC.md](../../product/PRODUCT_SPEC.md) §14 and will not block progress.
+| Q1 | Confirm the Vietnamese grade taxonomy | 4 |
+| Q2 | Age range 4–12, or start at 6? | 4 |
+| Q5 | Data residency (Vietnam PDPD) vs Singapore region | 1 |
+| Q8 | Does the child ever see a score? | 5 |
+| Q9 | Photo submission retention policy | 9 |
+| Q10 | Confirm Phase 8 is genuinely post-launch | 8 |

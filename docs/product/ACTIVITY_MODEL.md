@@ -1,7 +1,7 @@
 # Canonical Activity Model
 
-**Status:** Draft v1 · `schemaVersion: 1`
-**Date:** 2026-08-25
+**Status:** Draft v2 · `schemaVersion: 1`
+**Date:** 2026-08-25 (revised 2026-08-26)
 **Related:** [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) · [CHILD_SAFETY.md](./CHILD_SAFETY.md) · [AI_CONTENT_RULES.md](./AI_CONTENT_RULES.md)
 
 ---
@@ -103,11 +103,21 @@ const ActivityEnvelope = z.object({
 Two envelope rules carry real weight:
 
 - **`safety.reviewedBy` is required on every activity, including AI ones.** There is no
-  shape of this object that represents "generated and never looked at by a person".
-- **`provenance.source === 'ai'` structurally requires `approvedByParentId`.** An AI
-  activity that has not been approved by a specific parent cannot be represented as a
-  valid `Activity` at all, so it cannot be assigned. The preview gate is enforced by the
-  type system, not by a code path someone might forget.
+  shape of this object that validates as "generated and never looked at by a person".
+- **`provenance.source === 'ai'` requires `approvedByParentId` and `approvedAt`.** An AI
+  activity that has not been approved by a specific parent **fails zod validation**.
+
+> ⚠️ **What this does and does not guarantee.** The schema makes unapproved AI content
+> fail to *validate*. It does **not** make it impossible to assign. TypeScript types are
+> erased at runtime: a value from `JSON.parse`, a raw SQL row, an `as` cast, or a code
+> path that simply never calls `.parse()` is not checked by anything. **TypeScript is a
+> safety layer that catches mistakes during development, not a security boundary.**
+>
+> The preview gate is therefore enforced at three levels — zod validation, a runtime
+> domain guard on the single assignment path, and a database constraint added with AI in
+> Phase 8. See [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.3 for the full defence-in-depth
+> table. Nothing in this document should be read as a claim that the type system alone
+> prevents unapproved content from being assigned.
 
 ## 4. Response spec
 
@@ -299,6 +309,11 @@ An activity must pass **all four** before it can be assigned:
 | **L2 — Referential** | zod refinements + `validateActivity()` | `answerKey` not in `choices`, `minAge > maxAge`, `guided` without options, difficulty outside the age band's permitted range | Reject |
 | **L3 — Safety** | `lib/domain/safety` | Denylisted terms, URLs, emails, phone numbers, contact solicitation, reading level outside the band, text length caps | Reject (fail closed) |
 | **L4 — Human** | Pull-request review (seed) / parent preview (AI) | Tone, cultural fit, pedagogy, factual accuracy | Not approved |
+| **G — Runtime guard** | `assertAssignable(activity, actingParentId)` on the assignment path | `status !== 'approved'`; AI content whose approving parent is missing or is not the acting parent | Throw — the assignment is refused |
+
+`G` is not a validation *layer* so much as a gate: it runs at the moment of assignment,
+on whatever object actually reached that code, and is unit-tested with values cast past
+the compiler (`as unknown as Activity`) to prove the check is done at runtime.
 
 L1–L3 are **pure functions** and run identically in three places: the seed validation
 CI job, the database write path, and (later) the AI generation pipeline. There is one
@@ -317,6 +332,36 @@ of the validated `Activity` object, together with `snapshot_schema_version`.
 
 Templates are additionally **immutable once `approved`**: a change publishes a new
 `version` (and, for breaking payload changes, a new `slug`), rather than mutating the row.
+
+### 7.1 `toChildView()` — answer keys are Parent Mode only
+
+The snapshot legitimately contains answer keys, because parent review and auto-scoring
+need them. The child's browser must never receive those bytes. Every child-facing
+response is therefore passed through a **server-side projection**:
+
+```ts
+function toChildView(activity: Activity): ChildViewActivity
+```
+
+It removes, by construction:
+
+| Field | Type | Why |
+|---|---|---|
+| `parentNote` | envelope | Written for the parent, not the child |
+| `questions[].answerKey` | `story_comprehension` | The answer |
+| `questions[].rationale` | `story_comprehension` | Explains the answer |
+| `questions[].exemplarAnswer` | `story_comprehension` | A model answer |
+| `guidance.mustMention` | `story_summary` | A parent-facing checklist |
+| `options[].isConstructive` | `situation_judgment` | Reveals the "good" option |
+| `options[].feedback` | `situation_judgment` | Withheld until after the child chooses, then returned for the chosen option only |
+
+`ChildViewActivity` is a distinct type, not `Partial<Activity>`, so a renderer cannot
+accidentally be handed a full `Activity`. Auto-scoring runs **server-side against the
+stored snapshot**, never against anything the client sends back or holds.
+
+An automated test asserts that no child-facing response for any of the six renderers
+contains an answer key, rationale, or exemplar answer — see
+[PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §9 and decision A12.
 
 ## 8. Submission shape
 
@@ -338,9 +383,10 @@ const AutoScore = z.object({
 }).nullable();   // null whenever the activity has no `choice` component
 ```
 
-Auto-scoring runs **only** over `answers.choice`, comparing against `answerKey` in the
-snapshot. Text answers are stored verbatim and shown to the parent; nothing grades them.
-Per open question Q8, the child sees encouragement rather than a score.
+Auto-scoring runs **server-side only**, over `answers.choice`, comparing against
+`answerKey` in the stored snapshot — never against a key sent by the client, which never
+has one (§7.1). Text answers are stored verbatim and shown to the parent; nothing grades
+them. Per open question Q8, the child sees encouragement rather than a score.
 
 ## 9. Versioning
 
@@ -368,5 +414,16 @@ content/seeds/
 ```
 
 Each file default-exports a `satisfies Activity` object, so authoring errors surface in
-the editor and in `tsc`, before CI. The Phase 2 coverage matrix asserts that every
-`(type × ageBand × difficulty)` cell the age policy permits has at least one activity.
+the editor and in `tsc`, before CI — a convenience for authors, not a guarantee, since
+every seed is still parsed through L1–L3 at load time and in CI.
+
+**MVP content scope: approximately 20–25 original activities**, covering all six types
+across the age bands. This is a launch target, not a precondition — implementation does
+not wait on the library reaching a count. All MVP content is **original work authored for
+this product**; commercial book text, textbook extracts, and in-copyright stories are
+never copied. The `attribution` field on `StoryBlock` exists for future public-domain or
+properly licensed material.
+
+The coverage matrix reports which `(type × ageBand × difficulty)` cells are filled and
+fails CI on a cell that the age policy permits and the roadmap has marked required — it
+does not demand every permitted cell be filled at MVP.

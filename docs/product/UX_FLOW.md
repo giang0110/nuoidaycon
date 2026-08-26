@@ -1,7 +1,7 @@
 # UX & Navigation Structure
 
-**Status:** Draft v1
-**Date:** 2026-08-25
+**Status:** Draft v2
+**Date:** 2026-08-25 (revised 2026-08-26)
 **Related:** [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) · [ACTIVITY_MODEL.md](./ACTIVITY_MODEL.md) · [CHILD_SAFETY.md](./CHILD_SAFETY.md)
 
 ---
@@ -89,7 +89,7 @@ one tap away.
    ↓  email confirmation
 /children/new  — wizard, one question per screen
    1. Tên gọi ở nhà (nickname; copy explains a nickname is fine and preferred)
-   2. Tháng & năm sinh  (never an exact date)
+   2. Tháng & năm sinh  (birth_year + birth_month only — never an exact date)
    3. Lớp                (mẫu giáo … lớp 6)
    4. Chọn hình đại diện (preset illustrations only — no photo upload)
    5. Sở thích           (pick 3–6 interest chips)
@@ -133,7 +133,11 @@ PIN gate  — parent enters PIN, picks which child
    "Chào Bi! Hôm nay con có 2 hoạt động"
    Cards: large, illustrated, one tap to open. Completed cards show a calm check.
    ↓
-/play/[assignmentId]  — one of six renderers:
+/play/[assignmentId]  — one of six renderers, each fed the server-side
+                         toChildView() projection: the client never receives
+                         answer keys, rationales or exemplar answers
+                         (ACTIVITY_MODEL.md §7.1)
+
    handwriting          instructions + "in ra để viết" + take/upload a photo of the work
    drawing_prompt       prompt + checklist + take/upload a photo
    story_comprehension  story (large type, adjustable size) → questions one per screen
@@ -166,12 +170,15 @@ motion that cannot be disabled, and full keyboard operability.
    Left / top:  what was assigned (from the snapshot)
    Right / below: what the child did
       text answers verbatim · multiple-choice with correct/incorrect and the
-      parent-only rationale · photo submissions (signed URL, tap to zoom)
+      **parent-only** answer key and rationale (never sent to child mode) ·
+      photo submissions (short-lived signed URL, tap to zoom)
    Score: shown to the parent only, for choice questions only
    ↓
 Verdict — three large buttons, one tap:
    [Hơi dễ]  [Vừa sức]  [Hơi khó]
    Optional note to self
+   Also available here: [Xoá bài làm này] — deletes the submission and its
+   photos permanently, with a confirm step
    ↓
 Saves the review → difficulty for that (child, type) adapts (§7 of PRODUCT_SPEC)
    ↓
@@ -231,8 +238,13 @@ the "report content" mechanism.
 - **Two moods, one system.** The parent app is calm, dense, and efficient. Child mode is
   large, warm, spacious and playful. Both use the same shadcn/ui primitives and design
   tokens; child mode overrides scale and colour, not the component library.
-- Vietnamese diacritics must render correctly at every weight and size — font selection
-  is a first-class requirement, not a polish item (see open question Q4).
+- Vietnamese diacritics must render correctly at every weight and size in the parent and
+  child UIs — font selection for the *interface* is a first-class requirement, not a
+  polish item.
+- The **handwriting font and `vở ô ly` ruling** used on printed worksheets are a separate
+  concern, deliberately **deferred to Phase 7 (Worksheets)**. No earlier phase depends on
+  that decision: the schema already carries the `ruling` enum, and screen renderers do not
+  use the worksheet font.
 - Encouraging, never evaluative. Effort over ability. No red, no X marks, no "sai rồi".
 - No dark patterns: no artificial urgency, no streak guilt, no notification badges
   engineered to pull a parent back.

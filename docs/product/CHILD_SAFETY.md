@@ -1,7 +1,7 @@
 # Child Safety Rules
 
-**Status:** Draft v1 · `policyVersion: age-policy@2026-08-25`
-**Date:** 2026-08-25
+**Status:** Draft v2 · `policyVersion: age-policy@2026-08-25`
+**Date:** 2026-08-25 (revised 2026-08-26)
 **Applies to:** all content, all features, MVP and beyond
 **Related:** [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) · [ACTIVITY_MODEL.md](./ACTIVITY_MODEL.md) · [AI_CONTENT_RULES.md](./AI_CONTENT_RULES.md)
 
@@ -23,29 +23,34 @@ These hold permanently, not just for the MVP.
 | S1 | The product **MUST NOT** provide any free-form conversational interface between a child and a language model. | No generation endpoint reachable from the child route group; no LLM dependency in the MVP at all (CI check). |
 | S2 | A child **MUST NOT** be able to send free text to any destination other than their own submission record, which only their parent can read. | Submissions are RLS-scoped to the owning parent; there is no other write path from child mode. |
 | S3 | The product **MUST NOT** contain child-to-child or child-to-stranger communication of any kind — no chat, comments, replies, feeds, profiles, sharing links, or presence. | Non-goal #8; no such tables exist in the schema. |
-| S4 | Unreviewed content **MUST NOT** reach a child. | `safety.reviewedBy` is required by the schema; `provenance.source === 'ai'` structurally requires `approvedByParentId` ([ACTIVITY_MODEL.md](./ACTIVITY_MODEL.md) §3). |
+| S4 | Unreviewed content **MUST NOT** reach a child. | Defence in depth, not types: zod validation requires `safety.reviewedBy`, and requires `approvedByParentId` when `provenance.source === 'ai'`; a runtime guard `assertAssignable()` re-checks on the assignment path; a database constraint is added with AI in Phase 8. See [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.3. |
 | S5 | The product **MUST NOT** load third-party advertising, marketing, or behavioural-analytics SDKs, in child mode or anywhere else. | CSP + dependency review; no ad/analytics packages permitted in `package.json`. |
 | S6 | The product **MUST NOT** show a child any outbound link, external URL, embedded browser, or app-store prompt. | Child-mode renderers strip links; L3 safety validation rejects URLs in content. |
 | S7 | Content **MUST NOT** ask a child to disclose personal information — full name, address, school, phone, email, social handles, daily routine, or when they are home alone. | L3 detectors + closed `theme` / `mode` enums + PR review. |
 | S8 | The product **MUST NOT** encourage a child to keep anything secret from their parent or caregiver. | PR review; reinforced by the mandatory `trustedAdultPath` on `situation_judgment`. |
 | S9 | Children **MUST NOT** have accounts, credentials, or sessions of their own. | Architectural decision A7; no child auth path exists. |
-| S10 | Child submissions **MUST NOT** be sent to any third party, including a model provider, for any purpose. | MVP has no such integration; post-MVP this remains barred ([AI_CONTENT_RULES.md](./AI_CONTENT_RULES.md) §6). |
+| S10 | Child submissions **MUST NOT** be sent to any third party, including a model provider, for any purpose. | MVP has no such integration; this remains barred after Phase 8 ([AI_CONTENT_RULES.md](./AI_CONTENT_RULES.md) §6). |
+| S11 | Answer keys, rationales and exemplar answers **MUST NOT** be sent to the child client. | Server-side `toChildView()` projection ([ACTIVITY_MODEL.md](./ACTIVITY_MODEL.md) §7.1); auto-scoring runs server-side against the stored snapshot; asserted by an automated test over all six renderers. |
 
 ## 3. Data minimisation
 
 **Collected about a child:** nickname (a nickname is encouraged in the UI copy),
-birth **month and year**, grade, chosen interest tags, avatar selected from preset
+`birth_year` + `birth_month`, grade, chosen interest tags, avatar selected from preset
 illustrations, and their own submitted work.
 
 **Never collected about a child:** exact date of birth, legal full name (not required),
 email, phone, address, school name, geolocation, device identifiers, biometrics,
 contacts, or a required photograph of the child.
 
+**Never persisted:** the child's **age**. Age is derived from `birth_year` +
+`birth_month` at request time and is not written to any column, cache, or session.
+
 Additional rules:
 
 - The **parent** is the only account holder, the only consent-giver, and the only data subject with credentials.
-- Photo submissions are stored in a **private** bucket at `{parent_id}/{child_id}/{submission_id}/…` and served exclusively through **short-TTL signed URLs**. No object is ever public.
+- Photo submissions are **decoded and re-encoded server-side before the final asset is stored**, which discards EXIF and every other metadata block (see §7). They are stored in a **private** bucket at `{parent_id}/{child_id}/{submission_id}/…` and served exclusively through **short-lived signed URLs**. No object is ever public.
 - Upload UI copy explicitly asks parents to photograph *the work, not the child*, and to avoid capturing faces, names on paper, or school identifiers.
+- The parent can **delete any individual submission** and its assets at any time, from the review screen or the child's history. Deletion removes the rows and purges the Storage objects, and is recorded in `audit_events`.
 - The parent can **export** all data for their family (JSON + assets) and **delete** the account. Deletion cascades from `profiles` through every child, assignment, submission and asset, and purges Storage objects under the parent's prefix.
 - `audit_events` retains actor, action and subject ids — not content — for security review.
 - Retention default: data is kept until the parent deletes it (open question Q9).
@@ -112,7 +117,7 @@ everyday emotions (disappointment about a rained-off outing), never distress scr
 ### 5.4 `story_comprehension` / `story_summary` specific
 
 - Every question must be answerable from the story text alone.
-- Non-original text requires `attribution`; the team must hold rights to publish it (open question Q3).
+- **MVP stories are original work.** Commercial book text, textbook extracts, and in-copyright stories are never copied. Any future non-original text requires `attribution` and documented rights to publish.
 - Reading level must fall within the band's thresholds, measured by the documented Vietnamese heuristic (average words per sentence + average syllables per word), since English readability formulas do not transfer.
 
 ### 5.5 `drawing_prompt` / `handwriting` specific
@@ -140,10 +145,12 @@ This is the highest-risk type and carries the strictest rules.
 
 ## 7. Security controls
 
-- RLS **enabled and forced** on every table; deny-by-default; nothing granted to `anon`.
+- RLS **enabled on every table**; deny-by-default; nothing granted to `anon`. `FORCE ROW LEVEL SECURITY` is applied **selectively and with a stated reason** — on tables holding child work with no legitimate owner-role write path — rather than blanket, because forcing a table the seed loader or a trigger legitimately writes breaks it without constraining the actual threat. The per-table decision and rationale are in [PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.2.
+- Note that `service_role` carries `BYPASSRLS`, so neither `ENABLE` nor `FORCE` constrains it; the control for that is keeping the service-role key out of every request path (decision A3).
+- An automated **cross-tenant RLS test matrix** covers SELECT / INSERT / UPDATE / DELETE per table for a second tenant and for `anon`, and fails CI if a new table is not covered ([PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.4).
 - The Supabase **service-role key is never used in a request path** — migrations and seed scripts only (A3).
 - Storage bucket `submissions` is private; its policy asserts `(storage.foldername(name))[1] = auth.uid()::text`.
-- Uploads are validated for MIME type and size, re-encoded, and stripped of **EXIF metadata** (which routinely contains GPS coordinates) before storage.
+- Uploads are validated for MIME type and size **server-side**, then **decoded and re-encoded on the server** so that EXIF and all other metadata blocks (which routinely carry GPS coordinates, device ids and timestamps) are discarded before the final asset is written. Any client-side stripping is a bandwidth optimisation only and is **never** relied on — the client is not trusted.
 - A strict Content-Security-Policy with no third-party script origins; no inline event handlers.
 - Child-mode PIN is stored hashed (`child_mode_pin_hash`), rate-limited on attempts, and never logged.
 - No child data appears in logs, error reports, or telemetry.
@@ -164,7 +171,8 @@ The following run on every pull request, and a failure blocks merge:
 1. **Schema validation** — every seed parses under L1 + L2 ([ACTIVITY_MODEL.md](./ACTIVITY_MODEL.md) §6).
 2. **Safety lint** — every seed passes L3 (denylist, URL/PII detectors, length and reading-level caps).
 3. **Age-policy conformance** — every seed's `difficulty` sits inside its declared band's range; its `response.mode` is permitted for that band.
-4. **Coverage matrix** — every permitted `(type × ageBand × difficulty)` cell has at least one activity.
-5. **No-LLM check** — no LLM provider SDK appears in the dependency tree.
-6. **RLS cross-tenant tests** — a second tenant is denied read and write on every table.
+4. **Coverage matrix** — reports filled `(type × ageBand × difficulty)` cells and fails on a cell the roadmap has marked required. MVP target is ~20–25 activities; it is not a precondition for implementation.
+5. **No-LLM check** — no LLM provider SDK appears in the dependency tree. Active through Phase 7; lifted deliberately at Phase 8, never by drift.
+6. **RLS cross-tenant matrix** — a second tenant and `anon` are denied SELECT / INSERT / UPDATE / DELETE on every tenant-owned table; a new table without matrix coverage fails the build ([PRODUCT_SPEC.md](./PRODUCT_SPEC.md) §11.4).
+6a. **Answer-key leak test** — no child-facing response contains an answer key, rationale, or exemplar answer.
 7. **Accessibility** — automated axe checks on parent and child routes.
