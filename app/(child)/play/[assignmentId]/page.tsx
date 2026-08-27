@@ -20,6 +20,15 @@ export default async function PlayActivityPage({
   const assignment = await createAssignmentRepository(db).findById(assignmentId);
   if (!assignment) notFound();
 
+  /**
+   * Finished work is not re-openable. Without this, a back button or a stale
+   * tab renders a form whose submit can only ever be a no-op — better to show
+   * the result the child already earned.
+   */
+  if (assignment.status === 'submitted' || assignment.status === 'reviewed') {
+    redirect(`/play/${assignmentId}/done`);
+  }
+
   const parsed = activitySchema.safeParse(assignment.contentSnapshot);
   if (!parsed.success) notFound();
 

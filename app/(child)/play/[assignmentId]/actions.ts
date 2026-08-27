@@ -7,9 +7,8 @@ import {
   createAssignmentRepository,
   createSubmissionRepository,
 } from '@/lib/data/supabase/repositories';
-import { activitySchema } from '@/lib/domain/activity/schema';
-import { validateAnswers, autoScore } from '@/lib/domain/activity/submission';
-import { sanitiseImage, buildStoragePath } from '@/lib/media/sanitise-image';
+import { sanitiseImage } from '@/lib/media/sanitise-image';
+import { runSubmission, MAX_ASSETS, type SubmitPorts } from '@/lib/submissions/submit-flow';
 import { getMessages } from '@/lib/i18n';
 
 const t = getMessages('vi');
@@ -18,19 +17,15 @@ export interface SubmitState {
   error?: string;
 }
 
-const MAX_ASSETS = 3;
-
 /**
  * Submit a child's work.
  *
- * Everything is decided from the STORED SNAPSHOT, never from the request:
+ * This is an adapter and nothing more: it reads the form, binds the Supabase
+ * client into ports, and turns the flow's outcome into a redirect or a
+ * message. The rules — idempotency, retry reuse, ordering — live in
+ * lib/submissions/submit-flow.ts, where they are unit tested.
  *
- *  - answers are validated against the snapshot's response spec
- *  - multiple choice is scored against the snapshot's answer key, which the
- *    child's copy never contained (toChildView)
- *  - photos are decoded and RE-ENCODED SERVER-SIDE so EXIF cannot survive
- *
- * RLS constrains every write to this parent's own rows regardless.
+ * RLS constrains every write below to this parent's own rows regardless.
  */
 export async function submitAssignmentAction(
   assignmentId: string,
@@ -41,12 +36,7 @@ export async function submitAssignmentAction(
   const db = await createClient();
 
   const assignments = createAssignmentRepository(db);
-  const assignment = await assignments.findById(assignmentId);
-  if (!assignment) return { error: t.error.notFound };
-
-  const parsedSnapshot = activitySchema.safeParse(assignment.contentSnapshot);
-  if (!parsedSnapshot.success) return { error: t.error.generic };
-  const activity = parsedSnapshot.data;
+  const submissions = createSubmissionRepository(db);
 
   const text: Record<string, string> = {};
   const choice: Record<string, string> = {};
@@ -56,57 +46,131 @@ export async function submitAssignmentAction(
     if (key.startsWith('choice.')) choice[key.slice(7)] = value;
   }
 
-  const validation = validateAnswers(activity, { text, choice });
-  if (!validation.ok) return { error: validation.errors[0] ?? t.error.generic };
+  const files = formData
+    .getAll('photos')
+    .filter((f): f is File => f instanceof File && f.size > 0)
+    .slice(0, MAX_ASSETS);
 
-  const score = autoScore(activity, validation.answers);
+  const photos = await Promise.all(
+    files.map(async (file) => ({
+      bytes: Buffer.from(await file.arrayBuffer()),
+      mimeType: file.type,
+    })),
+  );
 
-  const submission = await createSubmissionRepository(db).create({
+  const ports: SubmitPorts = {
+    parentId,
+
+    async findAssignment(id) {
+      const assignment = await assignments.findById(id);
+      return assignment
+        ? {
+            id: assignment.id,
+            childId: assignment.childId,
+            status: assignment.status,
+            contentSnapshot: assignment.contentSnapshot,
+          }
+        : null;
+    },
+
+    async upsertSubmission(input) {
+      const submission = await submissions.upsertByAssignment(input);
+      return { id: submission.id };
+    },
+
+    async listAssetPaths(submissionId) {
+      const { data, error } = await db
+        .from('submission_assets')
+        .select('storage_path')
+        .eq('submission_id', submissionId);
+      if (error) throw new Error(`submission_assets.list: ${error.message}`);
+      return (data ?? []).map((row) => row.storage_path as string);
+    },
+
+    async replaceAssets(submissionId, rows) {
+      // Replace rather than append: the request carries the complete set of
+      // photos for this submission, so a retry must not stack a second copy.
+      const { error: deleteError } = await db
+        .from('submission_assets')
+        .delete()
+        .eq('submission_id', submissionId);
+      if (deleteError) throw new Error(`submission_assets.delete: ${deleteError.message}`);
+
+      if (rows.length === 0) return;
+      const { error: insertError } = await db.from('submission_assets').insert(
+        rows.map((row) => ({
+          submission_id: submissionId,
+          storage_path: row.storagePath,
+          mime_type: row.mimeType,
+          size_bytes: row.sizeBytes,
+        })),
+      );
+      if (insertError) throw new Error(`submission_assets.insert: ${insertError.message}`);
+    },
+
+    sanitise: sanitiseImage,
+
+    async upload(storagePath, data, mimeType) {
+      const { error } = await db.storage
+        .from('submissions')
+        // upsert, because the path is deterministic and a retry rewrites the
+        // same object instead of leaving the previous one orphaned.
+        .upload(storagePath, data, { contentType: mimeType, upsert: true });
+      return error ? { ok: false, message: error.message } : { ok: true };
+    },
+
+    async removeObjects(storagePaths) {
+      await db.storage.from('submissions').remove(storagePaths);
+    },
+
+    async markSubmitted(id) {
+      await assignments.updateStatus(id, 'submitted');
+    },
+
+    async appendAudit(event) {
+      await db.from('audit_events').insert({
+        actor_id: event.actorId,
+        action: event.action,
+        subject_type: event.subjectType,
+        subject_id: event.subjectId,
+        metadata: event.metadata,
+      });
+    },
+  };
+
+  const outcome = await runSubmission(ports, {
     assignmentId,
-    answers: validation.answers,
-    autoScore: score,
+    answers: { text, choice },
+    photos,
   });
 
-  // --- photos ------------------------------------------------------------
-  const photos = formData
-    .getAll('photos')
-    .filter((f): f is File => f instanceof File && f.size > 0);
-
-  for (const [index, file] of photos.slice(0, MAX_ASSETS).entries()) {
-    const raw = Buffer.from(await file.arrayBuffer());
-    const clean = await sanitiseImage(raw, file.type);
-    if (!clean.ok) return { error: t.play.photoRejected };
-
-    const storagePath = buildStoragePath({
-      parentId,
-      childId: assignment.childId,
-      submissionId: submission.id,
-      index,
-    });
-
-    const { error: uploadError } = await db.storage
-      .from('submissions')
-      .upload(storagePath, clean.data, { contentType: clean.mimeType, upsert: true });
-    if (uploadError) return { error: t.error.generic };
-
-    await db.from('submission_assets').insert({
-      submission_id: submission.id,
-      storage_path: storagePath,
-      mime_type: clean.mimeType,
-      size_bytes: clean.bytes,
-    });
+  if (outcome.status === 'error') {
+    return { error: errorMessageFor(outcome) };
   }
 
-  await assignments.updateStatus(assignmentId, 'submitted');
-
-  await db.from('audit_events').insert({
-    actor_id: parentId,
-    action: 'submit',
-    subject_type: 'submission',
-    subject_id: submission.id,
-    metadata: { assignmentId },
-  });
-
+  /**
+   * Both a fresh submission and a repeat of a finished one land on the same
+   * screen. From the child's side there is no difference worth showing: the
+   * work is in, and a second tap should feel like the first one worked.
+   */
   revalidatePath('/play');
   redirect(`/play/${assignmentId}/done`);
+}
+
+/**
+ * The flow returns a closed set of reasons, never a database message, so this
+ * mapping is total and nothing raw can slip through it.
+ */
+function errorMessageFor(outcome: { reason: string; messages?: string[] }): string {
+  switch (outcome.reason) {
+    case 'not_found':
+      return t.error.notFound;
+    case 'invalid_answers':
+      return outcome.messages?.[0] ?? t.error.generic;
+    case 'photo_rejected':
+    case 'storage_failed':
+      return t.play.photoRejected;
+    default:
+      return t.error.generic;
+  }
 }

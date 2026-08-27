@@ -335,6 +335,28 @@ export function createSubmissionRepository(db: DB): SubmissionRepository {
       };
     },
 
+    async upsertByAssignment({ assignmentId, answers, autoScore }) {
+      // One statement: INSERT ... ON CONFLICT (assignment_id) DO UPDATE. The
+      // payload names only these three columns, so submitted_at is set by its
+      // default on insert and left alone on conflict.
+      const { data, error } = await db
+        .from('submissions')
+        .upsert(
+          { assignment_id: assignmentId, answers, auto_score: autoScore },
+          { onConflict: 'assignment_id' },
+        )
+        .select('*')
+        .single();
+      if (error) fail('submissions.upsertByAssignment', error);
+      return {
+        id: data.id,
+        assignmentId: data.assignment_id,
+        answers: data.answers,
+        autoScore: data.auto_score,
+        submittedAt: data.submitted_at,
+      };
+    },
+
     async delete(submissionId) {
       // Assets cascade at the database level.
       const { error } = await db.from('submissions').delete().eq('id', submissionId);

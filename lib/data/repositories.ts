@@ -107,6 +107,23 @@ export interface SubmissionRepository {
     answers: unknown;
     autoScore: unknown | null;
   }): Promise<Submission>;
+  /**
+   * Get-or-create for one assignment, in a single statement.
+   *
+   * `assignment_id` is UNIQUE, so a plain insert turns any retry — a refresh, a
+   * back button, a second attempt after a photo failed — into a 23505 the child
+   * should never see. Read-then-insert would only narrow the window; ON
+   * CONFLICT closes it.
+   *
+   * Answers are refreshed on conflict so a corrected retry is not discarded.
+   * `submitted_at` keeps its original value: it records when the child first
+   * finished, not when the upload finally went through.
+   */
+  upsertByAssignment(input: {
+    assignmentId: string;
+    answers: unknown;
+    autoScore: unknown | null;
+  }): Promise<Submission>;
   /** A parent may delete their child's work; assets cascade (approved decision). */
   delete(submissionId: string): Promise<void>;
 }
