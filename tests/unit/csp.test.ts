@@ -1,0 +1,113 @@
+/**
+ * Content-Security-Policy regression coverage.
+ *
+ * The dev relaxation added for React Refresh is exactly the kind of change
+ * that leaks into production later, so the production policy is pinned by test
+ * rather than by a reviewer noticing a conditional.
+ */
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { buildContentSecurityPolicy, scriptSrcFor, SECURITY_HEADERS } from '@/lib/security/csp';
+import { MAX_UPLOAD_BYTES } from '@/lib/media/sanitise-image';
+
+const PRODUCTION_ENVS = ['production', 'test', 'preview', 'staging', '', undefined as never];
+
+describe("'unsafe-eval' is a development-only relaxation", () => {
+  it('is absent from the production policy', () => {
+    expect(buildContentSecurityPolicy('production')).not.toContain('unsafe-eval');
+  });
+
+  it.each(PRODUCTION_ENVS)(
+    'is absent for NODE_ENV=%s — development is the only exception',
+    (env) => {
+      expect(scriptSrcFor(env as string)).not.toContain('unsafe-eval');
+    },
+  );
+
+  it('is present in development, where React Refresh needs it', () => {
+    expect(scriptSrcFor('development')).toContain("'unsafe-eval'");
+    expect(buildContentSecurityPolicy('development')).toContain("'unsafe-eval'");
+  });
+
+  it('changes nothing else between the two policies', () => {
+    const dev = buildContentSecurityPolicy('development').split('; ');
+    const prod = buildContentSecurityPolicy('production').split('; ');
+    expect(dev).toHaveLength(prod.length);
+
+    const differing = dev.filter((directive, i) => directive !== prod[i]);
+    expect(differing.map((d) => d.split(' ')[0])).toEqual(['script-src']);
+  });
+});
+
+describe('no third-party script origin, in any environment', () => {
+  it.each(['development', 'production'])('script-src has no external origin (%s)', (env) => {
+    const scriptSrc = buildContentSecurityPolicy(env)
+      .split('; ')
+      .find((d) => d.startsWith('script-src'))!;
+    expect(scriptSrc).not.toMatch(/https?:\/\//);
+  });
+
+  it('keeps the directives that make the tracker ban enforceable', () => {
+    const csp = buildContentSecurityPolicy('production');
+    for (const directive of [
+      "default-src 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ]) {
+      expect(csp).toContain(directive);
+    }
+  });
+
+  it('still allows the font and Supabase origins the app actually needs', () => {
+    const csp = buildContentSecurityPolicy('production');
+    expect(csp).toContain('https://fonts.gstatic.com');
+    expect(csp).toContain('https://*.supabase.co');
+  });
+});
+
+describe('security headers', () => {
+  it('carries every header the audit requires', () => {
+    const keys = SECURITY_HEADERS.map((h) => h.key);
+    for (const required of [
+      'X-Frame-Options',
+      'X-Content-Type-Options',
+      'Referrer-Policy',
+      'Strict-Transport-Security',
+    ]) {
+      expect(keys).toContain(required);
+    }
+  });
+
+  it('leaves only the camera enabled', () => {
+    const permissions = SECURITY_HEADERS.find((h) => h.key === 'Permissions-Policy')!.value;
+    expect(permissions).toContain('camera=(self)');
+    expect(permissions).toContain('microphone=()');
+    expect(permissions).toContain('geolocation=()');
+  });
+});
+
+/**
+ * The framework limit and the sanitiser limit have to stay in the right order,
+ * or an oversized upload dies in transit and the parent sees a framework error
+ * instead of a message they can act on.
+ */
+describe('Server Action body limit sits above the sanitiser cap', () => {
+  const config = readFileSync('next.config.ts', 'utf8');
+
+  it('configures a body size limit at all', () => {
+    expect(config).toMatch(/serverActions:\s*\{\s*bodySizeLimit:\s*'(\d+)mb'/);
+  });
+
+  it('is larger than the sanitiser maximum, so OUR check is the one that fires', () => {
+    const configuredMb = Number(config.match(/bodySizeLimit:\s*'(\d+)mb'/)?.[1]);
+    expect(Number.isFinite(configuredMb)).toBe(true);
+    expect(configuredMb * 1024 * 1024).toBeGreaterThan(MAX_UPLOAD_BYTES);
+  });
+
+  it('does not silently raise the sanitiser cap', () => {
+    // The framework budget moved; the privacy-relevant limit did not.
+    expect(MAX_UPLOAD_BYTES).toBe(15 * 1024 * 1024);
+  });
+});

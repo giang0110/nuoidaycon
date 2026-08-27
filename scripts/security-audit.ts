@@ -155,18 +155,57 @@ for (const forbidden of ['answerKey', 'rationale', 'exemplarAnswer', 'isConstruc
 }
 
 // --- 9. No third-party script origin in the CSP ---------------------------
-const nextConfig = readFileSync(resolve(ROOT, 'next.config.ts'), 'utf8');
-const scriptSrc = nextConfig.match(/script-src([^"]*)/)?.[1] ?? '';
+const nextConfig = stripComments(readFileSync(resolve(ROOT, 'next.config.ts'), 'utf8'));
+const cspModule = stripComments(readFileSync(resolve(ROOT, 'lib/security/csp.ts'), 'utf8'));
+
+const scriptSrc = cspModule.match(/script-src[^`'"]*/)?.[0] ?? '';
 if (/https?:\/\//.test(scriptSrc)) {
   fail('csp', `script-src allows an external origin: ${scriptSrc.trim()}`);
 }
+
+/**
+ * 'unsafe-eval' is granted to the dev server for React Refresh. It must reach
+ * production under no circumstances, so this checks the guard rather than the
+ * string: the only place the literal may appear is behind an explicit
+ * development comparison.
+ */
+if (/unsafe-eval/.test(cspModule)) {
+  const guarded = /nodeEnv === 'development'[\s\S]{0,120}unsafe-eval/.test(cspModule);
+  if (!guarded) {
+    fail('csp', "'unsafe-eval' is not gated behind a development check");
+  }
+}
+if (/unsafe-eval/.test(nextConfig)) {
+  fail('csp', "next.config.ts hard-codes 'unsafe-eval'; it belongs behind the dev guard");
+}
+// Headers are declared in the CSP module and wired up by next.config.ts, so
+// both files count as "where the headers are set".
+const headerSources = `${nextConfig}\n${cspModule}`;
 for (const header of [
   'X-Frame-Options',
   'X-Content-Type-Options',
   'Referrer-Policy',
   'Strict-Transport-Security',
 ]) {
-  if (!nextConfig.includes(header)) fail('headers', `${header} is not set`);
+  if (!headerSources.includes(header)) fail('headers', `${header} is not set`);
+}
+if (!/Content-Security-Policy/.test(nextConfig)) {
+  fail('headers', 'the CSP is never attached to a response');
+}
+
+// --- 9b. Server Action body limit vs the sanitiser cap --------------------
+const bodyLimitMb = Number(nextConfig.match(/bodySizeLimit:\s*'(\d+)mb'/)?.[1]);
+const sanitiserCapMb = Number(sanitiser.match(/MAX_UPLOAD_BYTES = (\d+) \* 1024 \* 1024/)?.[1]);
+if (!Number.isFinite(bodyLimitMb)) {
+  fail(
+    'upload',
+    'serverActions.bodySizeLimit is not configured; real photos will be rejected in transit',
+  );
+} else if (Number.isFinite(sanitiserCapMb) && bodyLimitMb <= sanitiserCapMb) {
+  fail(
+    'upload',
+    `bodySizeLimit (${bodyLimitMb}mb) must exceed the sanitiser cap (${sanitiserCapMb}mb) so our check reports the failure, not the framework`,
+  );
 }
 
 // --- 10. No analytics or advertising SDK (S5) -----------------------------
