@@ -76,5 +76,7 @@ create policy submissions_objects_delete on storage.objects
     and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
-comment on table storage.objects is
-  'Submission assets are private. Application access is via short-lived signed URLs only; no public URL is ever issued (decision A10).';
+-- Hosted Supabase owns storage.objects, so migrations must not issue
+-- COMMENT ON TABLE against this managed Storage table.
+-- Submission assets remain private and are accessed only through
+-- short-lived signed URLs (decision A10).
