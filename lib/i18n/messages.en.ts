@@ -67,6 +67,9 @@ export const en: Messages = {
     emailInUse: '',
     weakPassword: '',
     invalidEmail: '',
+    confirmSent: '',
+    linkExpired: '',
+    linkInvalid: '',
   },
   child: {
     listTitle: '',

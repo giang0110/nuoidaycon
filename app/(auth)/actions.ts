@@ -2,8 +2,10 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { buildEmailRedirect, resolveSiteOrigin, safeNextPath } from '@/lib/auth/redirects';
 import { getMessages } from '@/lib/i18n';
 
 const t = getMessages('vi');
@@ -40,10 +42,20 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const origin = resolveSiteOrigin(await headers());
+
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
-    options: { data: { display_name: parsed.data.displayName } },
+    options: {
+      data: { display_name: parsed.data.displayName },
+      /**
+       * Without this the confirmation link returns to the project's Site URL,
+       * which is a page — and a page cannot exchange the code for a session.
+       * It must come back through the callback route.
+       */
+      emailRedirectTo: buildEmailRedirect(origin, '/children/new') ?? undefined,
+    },
   });
 
   if (error) {
@@ -51,6 +63,13 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     // address is registered.
     return { error: error.status === 422 ? t.auth.emailInUse : t.error.generic };
   }
+
+  /**
+   * With email confirmations ON there is no session yet, so redirecting to
+   * /dashboard would bounce straight back to /login and look like the signup
+   * failed. Tell the parent to go and read their email instead.
+   */
+  if (!data.session) return { notice: t.auth.confirmSent };
 
   revalidatePath('/', 'layout');
   redirect('/dashboard');
@@ -70,8 +89,9 @@ export async function logInAction(_prev: AuthState, formData: FormData): Promise
   if (error) return { error: t.auth.invalidCredentials };
 
   revalidatePath('/', 'layout');
-  const next = formData.get('next');
-  redirect(typeof next === 'string' && next.startsWith('/') ? next : '/dashboard');
+  // safeNextPath, not startsWith('/'): '//evil.example' passes that check and
+  // is a protocol-relative URL pointing at another host.
+  redirect(safeNextPath(formData.get('next')));
 }
 
 export async function logOutAction(): Promise<void> {
@@ -90,7 +110,13 @@ export async function requestPasswordResetAction(
   if (!email.success) return { notice: t.auth.resetSent };
 
   const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(email.data);
+  const origin = resolveSiteOrigin(await headers());
+
+  // Same reason as signup: the recovery link has to land on the callback route
+  // so the code becomes a session before /reset-password renders its form.
+  await supabase.auth.resetPasswordForEmail(email.data, {
+    redirectTo: buildEmailRedirect(origin, '/reset-password') ?? undefined,
+  });
   return { notice: t.auth.resetSent };
 }
 

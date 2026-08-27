@@ -37,8 +37,12 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Content-Security-Policy', value: CSP }, ...SECURITY_HEADERS],
       },
       {
-        // A child's work must never be cached by an intermediary.
-        source: '/(play|print|assignments)/:path*',
+        /**
+         * A child's work must never be cached by an intermediary — and neither
+         * must /auth, where the URL carries a one-time confirmation or recovery
+         * credential and the response sets the session cookie.
+         */
+        source: '/(auth|play|print|assignments)/:path*',
         headers: [{ key: 'Cache-Control', value: 'private, no-store, max-age=0' }],
       },
     ];

@@ -38,8 +38,20 @@ describe('isProtectedPath', () => {
 });
 
 describe('isAuthPath', () => {
-  it.each(['/login', '/signup', '/forgot-password', '/reset-password'])('recognises %s', (path) => {
+  it.each(['/login', '/signup', '/forgot-password'])('recognises %s', (path) => {
     expect(isAuthPath(path)).toBe(true);
+  });
+
+  it('does NOT bounce an authenticated visitor away from /reset-password', () => {
+    // A recovery link signs the parent in before they reach the form. Treating
+    // /reset-password as an auth path would redirect the only people who ever
+    // arrive there straight to /dashboard, and the reset could never complete.
+    expect(isAuthPath('/reset-password')).toBe(false);
+  });
+
+  it('leaves the email callback alone so it can complete the exchange', () => {
+    expect(isAuthPath('/auth/callback')).toBe(false);
+    expect(isProtectedPath('/auth/callback')).toBe(false);
   });
 
   it('does not treat protected or marketing routes as auth routes', () => {

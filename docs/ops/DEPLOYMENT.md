@@ -44,12 +44,54 @@ person with the appropriate account:
    SEED_DATABASE_URL=<project connection string> pnpm db:seed
    psql <connection string> -f supabase/seed/0001_interests.sql
    ```
-4. **Configure Auth:** enable email confirmations, point at the custom SMTP
-   provider, and set the site URL and redirect URLs to the production domain.
+4. **Configure Auth** — see §3.1 below. The redirect URLs are not optional:
+   an emailed link returns through `/auth/callback`, and Supabase refuses any
+   `redirectTo` that is not on the allowlist.
 5. **Verify the storage bucket** is `submissions`, private, 15 MB limit,
    jpeg/png/webp only. Migration 0004 creates it; confirm it in the dashboard.
 6. **Deploy to Vercel** with the environment variables above.
 7. **Run the post-deploy checklist** below before giving the URL to anyone.
+
+### 3.1 Auth configuration (Dashboard)
+
+Every emailed link — confirmation, recovery, email change — comes back through
+**`/auth/callback`**, a route handler that trades the one-time `code` (PKCE) or
+`token_hash` for a session cookie. A link pointed at a *page* cannot do that
+exchange, so these settings are load-bearing rather than cosmetic.
+
+**Authentication → URL Configuration**
+
+| Field | Value |
+|---|---|
+| Site URL | `https://<domain>` |
+| Redirect URLs | `https://<domain>/auth/callback`, `https://<domain>/**`, and `http://localhost:3000/auth/callback` for local work |
+
+**Authentication → Providers → Email**
+
+| Setting | Value | Why |
+|---|---|---|
+| Email provider | ON | |
+| Confirm email | ON | The onboarding flow in UX_FLOW.md §4.1 assumes it |
+| Secure email change | ON | Confirms both the old and the new address |
+| Minimum password length | **8** | Must match the Zod schema in `app/(auth)/actions.ts`; a lower value lets the server accept what the form rejects |
+
+**Authentication → Emails → SMTP Settings**
+
+| Field | Value |
+|---|---|
+| Enable Custom SMTP | ON |
+| Sender email | `no-reply@<domain>` — on a domain with SPF **and** DKIM, or Gmail will spam-folder it |
+| Sender name | `Nuôi Dạy Con` |
+| Host / Port | provider's; `587` with STARTTLS |
+| Username / Password | **entered in the Dashboard only** — never in this repository, an env var, or a chat log |
+
+**Authentication → Rate Limits.** The built-in sender allows roughly 2–4 emails
+per hour, which makes deliverability testing look broken when it is only
+throttled. Custom SMTP lifts that; set "Emails per hour" to about 30 for a
+staging project.
+
+**Staging** is a SEPARATE Supabase project from production, with its own URL,
+anon key and SMTP sender. Nothing about this section is shared between them.
 
 ## 4. Post-deploy checklist
 
@@ -94,7 +136,7 @@ Honest list of what has **not** been verified, and why.
 
 | Gap | Reason | Before launch |
 |---|---|---|
-| **Auth flows never run against a real auth server** | No Supabase instance was reachable from the build environment; container image pulls are blocked by network policy. Redirects, validation and every database rule are tested; the GoTrue round-trip is not. | Run the function checklist above manually. |
+| **Auth flows never run against a real auth server** | No Supabase instance was reachable from the build environment; container image pulls are blocked by network policy. Redirect safety, callback routing, link-failure handling and every database rule are tested — including `/auth/callback` over HTTP; the GoTrue round-trip and the emails themselves are not. | Run the function checklist above manually, on one Gmail and one non-Gmail mailbox. |
 | **Storage upload never run against a real Storage API** | Same. `sanitiseImage` is tested with real GPS-tagged JPEGs; the upload call itself is not. | Upload a real phone photo and inspect the stored object. |
 | **No live model call** | No API key present. The pipeline is tested against a scripted provider, which is the right way to test what the pipeline *does with* a response — but the adapter itself has never spoken to the API. | One smoke test before enabling AI. |
 | **WebKit e2e not run locally** | Only Chromium was available in the build sandbox. CI installs both. | Confirm the CI e2e job is green. |

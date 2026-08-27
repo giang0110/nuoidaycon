@@ -1,21 +1,40 @@
 import Link from 'next/link';
 import { AuthForm } from '@/components/auth-form';
 import { logInAction } from '../actions';
+import { safeNextPath, DEFAULT_DESTINATION } from '@/lib/auth/redirects';
 import { DEFAULT_LOCALE, getMessages } from '@/lib/i18n';
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; notice?: string }>;
 }) {
   const t = getMessages(DEFAULT_LOCALE);
-  const { next } = await searchParams;
+  const { next, notice } = await searchParams;
   // Only same-site paths are ever echoed back into the form.
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '';
+  const resolved = safeNextPath(next);
+  const safeNext = resolved === DEFAULT_DESTINATION ? '' : resolved;
+
+  /**
+   * The callback route sends a failed email link here with a short code. The
+   * code is a fixed member of this map — never text from the provider, which
+   * could disclose whether an address is registered.
+   */
+  const linkNotice =
+    notice === 'link_expired'
+      ? t.auth.linkExpired
+      : notice === 'link_invalid'
+        ? t.auth.linkInvalid
+        : null;
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">{t.auth.logInTitle}</h1>
+      {linkNotice && (
+        <p role="status" className="text-sm font-medium text-orange-700">
+          {linkNotice}
+        </p>
+      )}
       <AuthForm
         action={logInAction}
         submitLabel={t.auth.submitLogIn}

@@ -69,6 +69,9 @@ export const vi = {
     emailInUse: 'Email này đã được dùng.',
     weakPassword: 'Mật khẩu cần ít nhất 8 ký tự.',
     invalidEmail: 'Email chưa hợp lệ.',
+    confirmSent: 'Bố mẹ kiểm tra email và bấm vào liên kết xác nhận nhé.',
+    linkExpired: 'Liên kết đã hết hạn. Bố mẹ yêu cầu liên kết mới nhé.',
+    linkInvalid: 'Liên kết không dùng được. Bố mẹ thử lại nhé.',
   },
   child: {
     listTitle: 'Các con',

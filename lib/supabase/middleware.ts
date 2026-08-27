@@ -14,7 +14,16 @@ const PROTECTED_PREFIXES = [
   '/print',
 ];
 
-const AUTH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password'];
+/**
+ * Auth screens an ALREADY signed-in parent has no reason to see.
+ *
+ * `/reset-password` is deliberately NOT here. A recovery link signs the parent
+ * in — a recovery session is a session — so bouncing authenticated visitors to
+ * /dashboard would make the reset form unreachable by the only people who ever
+ * need it. `updateUser` requires that session anyway, and a signed-in parent
+ * changing their own password is a legitimate thing to do.
+ */
+const AUTH_PREFIXES = ['/login', '/signup', '/forgot-password'];
 
 export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
