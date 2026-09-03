@@ -30,6 +30,14 @@ describe('isProtectedPath', () => {
     expect(isProtectedPath('/playground')).toBe(false);
   });
 
+  it('protects every route under the parent layout, /ai included', () => {
+    // /ai was reachable by the middleware and gated only by the layout. The
+    // layout IS the real gate and RLS is the boundary, so this was never a
+    // hole — but a parent route missing from the list loses its ?next=
+    // round-trip and reads as an oversight.
+    expect(isProtectedPath('/ai')).toBe(true);
+  });
+
   it('protects child mode, which must never be reachable unauthenticated', () => {
     // Child mode runs inside the PARENT's session. It is a UX lock, not an
     // auth boundary — so the route must still require a real session.

@@ -38,11 +38,19 @@ const nextConfig: NextConfig = {
       },
       {
         /**
-         * A child's work must never be cached by an intermediary — and neither
-         * must /auth, where the URL carries a one-time confirmation or recovery
-         * credential and the response sets the session cookie.
+         * Nothing behind a session may be cached by an intermediary.
+         *
+         * Next already emits no-store for a page that reads cookies, which
+         * every route here does — but that is a framework default, not a
+         * promise, and it is invisible in review. Stating it explicitly means
+         * a page that stops reading cookies (or a Next version that changes
+         * its heuristic) cannot silently start being cacheable.
+         *
+         * /auth is included because the URL carries a one-time confirmation or
+         * recovery credential and the reply sets the session cookie.
          */
-        source: '/(auth|play|print|assignments)/:path*',
+        source:
+          '/(auth|play|print|assignments|dashboard|children|settings|library|assign|ai)/:path*',
         headers: [{ key: 'Cache-Control', value: 'private, no-store, max-age=0' }],
       },
     ];

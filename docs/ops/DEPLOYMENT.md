@@ -134,6 +134,11 @@ AI (only if enabling Phase 8):
 
 Honest list of what has **not** been verified, and why.
 
+See also **[LAUNCH_READINESS.md](./LAUNCH_READINESS.md)** — content depth per
+age band, the product metrics script, and the gates before real families use
+this. Infrastructure readiness is not the same as product readiness, and this
+document only covers the first.
+
 | Gap | Reason | Before launch |
 |---|---|---|
 | **Auth flows never run against a real auth server** | No Supabase instance was reachable from the build environment; container image pulls are blocked by network policy. Redirect safety, callback routing, link-failure handling and every database rule are tested — including `/auth/callback` over HTTP; the GoTrue round-trip and the emails themselves are not. | Run the function checklist above manually, on one Gmail and one non-Gmail mailbox. |
@@ -142,6 +147,8 @@ Honest list of what has **not** been verified, and why.
 | **WebKit e2e not run locally** | Only Chromium was available in the build sandbox. CI installs both. | Confirm the CI e2e job is green. |
 | **Performance not measured on a real network** | No deployment. | Measure from Vietnam on 4G after the first deploy. |
 | **Legal review outstanding** | Out of engineering scope. | COPPA-style and Vietnam PDPD review of [CHILD_SAFETY.md](../product/CHILD_SAFETY.md) §8. |
+| **Catalogue too thin per age band** | The bands do not overlap, so 22 activities is 4 / 10 / 5 / 3 for four different children — an eleven-year-old exhausts the library in three days. | 38 more activities, or narrow the launch to one band. See [LAUNCH_READINESS.md](./LAUNCH_READINESS.md) §1. |
+| **No product metrics baseline** | S5 bans analytics SDKs and nothing replaced them until `pnpm metrics`. | Run it once against staging so the baseline is not zero. |
 
 ## 7. Operational runbook
 

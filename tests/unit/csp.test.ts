@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { buildContentSecurityPolicy, scriptSrcFor, SECURITY_HEADERS } from '@/lib/security/csp';
+import { isProtectedPath } from '@/lib/supabase/middleware';
 import { MAX_UPLOAD_BYTES } from '@/lib/media/sanitise-image';
 
 const PRODUCTION_ENVS = ['production', 'test', 'preview', 'staging', '', undefined as never];
@@ -109,5 +110,46 @@ describe('Server Action body limit sits above the sanitiser cap', () => {
   it('does not silently raise the sanitiser cap', () => {
     // The framework budget moved; the privacy-relevant limit did not.
     expect(MAX_UPLOAD_BYTES).toBe(15 * 1024 * 1024);
+  });
+});
+
+/**
+ * The no-store list and the protected-route list have to stay in step. Next
+ * emits no-store for a page that reads cookies, but that is a default rather
+ * than a guarantee — so the header is declared explicitly, and this keeps the
+ * declaration from drifting behind the routes it is meant to cover.
+ */
+describe('every route behind a session is declared no-store', () => {
+  const config = readFileSync('next.config.ts', 'utf8');
+  const noStoreSource =
+    config.match(/source:\s*\n?\s*'\/\(([a-z|]+)\)\/:path\*'/)?.[1]?.split('|') ?? [];
+
+  it('parses the no-store route group out of next.config.ts', () => {
+    expect(noStoreSource.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    'dashboard',
+    'children',
+    'settings',
+    'library',
+    'assign',
+    'assignments',
+    'ai',
+    'play',
+    'print',
+  ])('covers /%s', (segment) => {
+    expect(isProtectedPath(`/${segment}`)).toBe(true);
+    expect(noStoreSource).toContain(segment);
+  });
+
+  it('covers /auth, whose URL carries a one-time credential', () => {
+    expect(noStoreSource).toContain('auth');
+  });
+
+  it('does not accidentally cover the public marketing pages', () => {
+    for (const publicSegment of ['privacy', 'safety']) {
+      expect(noStoreSource).not.toContain(publicSegment);
+    }
   });
 });

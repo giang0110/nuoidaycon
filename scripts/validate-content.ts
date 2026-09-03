@@ -9,6 +9,19 @@
 import { ALL_SEEDS } from '../content/seeds';
 import { validateActivity } from '../lib/domain/activity/validate';
 import { ACTIVITY_TYPES } from '../lib/domain/entities';
+import {
+  assessCoverage,
+  DEVELOPMENT_FLOOR,
+  LAUNCH_FLOOR,
+  type CoverageInput,
+} from '../lib/domain/content/coverage';
+
+/**
+ * `--launch` turns the launch floor from a warning into a failure. Run it as
+ * the release gate; the default run keeps the build usable while the catalogue
+ * is still being written.
+ */
+const LAUNCH_GATE = process.argv.includes('--launch');
 
 const BANDS = ['early', 'lower_primary', 'upper_primary', 'preteen'] as const;
 const MVP_TARGET_MIN = 20;
@@ -65,11 +78,68 @@ function main(): void {
   console.log(`\n  total activities : ${total}   (MVP target: ${MVP_TARGET_MIN}–25)`);
   console.log(`  activity types   : ${typesCovered}/6`);
 
+  /**
+   * The headline total above is the number that misleads: the bands are
+   * disjoint, so no child ever draws from more than one of them. What follows
+   * is what a child of each age actually gets.
+   */
+  const report = assessCoverage(
+    ALL_SEEDS.map((s) => ({ ageBand: s.safety.ageBand, type: s.type }) as CoverageInput),
+  );
+
+  console.log('\n  Depth per age band — what ONE child of that age actually gets');
+  console.log('  ' + '─'.repeat(74));
+  console.log(
+    '  ' +
+      'band'.padEnd(16) +
+      'activities'.padEnd(13) +
+      'types'.padEnd(9) +
+      'days of supply'.padEnd(17) +
+      'to launch floor',
+  );
+  for (const [ageBand, cov] of Object.entries(report.bands)) {
+    const gap = Math.max(0, LAUNCH_FLOOR - cov.count);
+    console.log(
+      '  ' +
+        ageBand.padEnd(16) +
+        String(cov.count).padEnd(13) +
+        `${cov.typeCount}/6`.padEnd(9) +
+        `~${cov.daysOfSupply} ngày`.padEnd(17) +
+        (gap === 0 ? '✓ ready' : `+${gap}`),
+    );
+  }
+  console.log('  ' + '─'.repeat(74));
+  console.log(
+    `\n  launch floor     : ${LAUNCH_FLOOR} per band   ` +
+      `(still to author: ${report.totalMissingForLaunch})`,
+  );
+  console.log(
+    `  launch-ready     : ${report.launchReadyBands.length > 0 ? report.launchReadyBands.join(', ') : 'none yet'}`,
+  );
+
   const problems: string[] = [];
   if (failed > 0) problems.push(`${failed} activities failed validation`);
   if (typesCovered < 6) problems.push(`only ${typesCovered}/6 activity types have content`);
   if (total < MVP_TARGET_MIN) {
     problems.push(`${total} activities is below the MVP target of ${MVP_TARGET_MIN}`);
+  }
+  for (const s of report.developmentShortfalls) {
+    problems.push(
+      `band ${s.ageBand} has ${s.have} activities, below the development floor of ${DEVELOPMENT_FLOOR}`,
+    );
+  }
+  if (LAUNCH_GATE) {
+    for (const s of report.launchShortfalls) {
+      problems.push(
+        `band ${s.ageBand} has ${s.have} activities; the launch floor is ${s.need} (needs ${s.missing} more)`,
+      );
+    }
+  } else if (!report.meetsLaunchFloor) {
+    console.warn(
+      `\n  ⚠ ${report.launchShortfalls.length} band(s) are below the launch floor. ` +
+        `A child in the thinnest band runs out in ~${Math.min(...report.launchShortfalls.map((s) => s.have))} days.`,
+    );
+    console.warn('    Run `pnpm validate:content --launch` to gate on this before opening up.');
   }
 
   if (problems.length > 0) {

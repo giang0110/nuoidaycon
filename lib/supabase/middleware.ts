@@ -2,7 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getPublicEnv } from '@/lib/env';
 
-/** Route groups that require an authenticated parent. */
+/**
+ * Route groups that require an authenticated parent.
+ *
+ * Must cover every route under the (parent) and (child) layouts. The layouts
+ * re-check server-side and RLS is the actual boundary, so a gap here is not a
+ * hole — but it costs the ?next= round-trip and invites the reader to assume
+ * the omitted route is public.
+ */
 const PROTECTED_PREFIXES = [
   '/dashboard',
   '/children',
@@ -10,6 +17,7 @@ const PROTECTED_PREFIXES = [
   '/settings',
   '/assign',
   '/assignments',
+  '/ai',
   '/play',
   '/print',
 ];
