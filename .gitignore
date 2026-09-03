@@ -57,3 +57,10 @@ next-env.d.ts
 
 # rendered worksheets for print tests
 /tests/e2e/.worksheets/
+
+# sinh t? d?ng b?i `next dev` (generate-agent-files.js)
+/AGENTS.md
+/CLAUDE.md
+
+# ?nh dùng d? test upload th? công
+test-photo*.jpg
