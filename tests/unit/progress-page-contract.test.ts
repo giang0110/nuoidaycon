@@ -38,8 +38,8 @@ describe('Phase 10 parent progress page contract', () => {
   });
 
   it('links to the upgraded screen from both child detail and dashboard', () => {
-    expect(childPage).toContain(`/children/${child.id}/history`);
-    expect(dashboardPage).toContain(`/children/${child.id}/history`);
+    expect(childPage).toContain('/children/${child.id}/history');
+    expect(dashboardPage).toContain('/children/${child.id}/history');
   });
 
   it('moves all new user-facing progress copy into both i18n catalogues', () => {
