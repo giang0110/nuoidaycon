@@ -299,7 +299,7 @@ Extend the existing summary tests using TDD:
 
 - 7-day inclusive boundary
 - 30-day inclusive boundary
-- invalid timestamps ignored as today
+- invalid timestamps are ignored and never treated as current activity
 - zero assignments => `completionRate = null`
 - submitted/reviewed completion counting
 - submitted-only awaiting-review counting
