@@ -50,11 +50,9 @@ export default async function LoginPage({
         ]}
       />
       <div className="text-parent-muted flex flex-col gap-2 text-sm">
-        {/* Recovery is a full auth navigation. A plain anchor keeps it reliable
-            even if client-side routing is unavailable or delayed. */}
-        <a href="/forgot-password" className="underline">
+        <Link href="/forgot-password" className="underline">
           {t.auth.forgotPassword}
-        </a>
+        </Link>
         <p>
           {t.auth.noAccount}{' '}
           <Link href="/signup" className="underline">
