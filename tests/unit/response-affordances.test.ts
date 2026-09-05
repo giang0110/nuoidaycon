@@ -41,7 +41,9 @@ describe('response affordances', () => {
   });
 
   it('mixed exposes only the parts actually declared', () => {
-    expect(responseAffordances({ mode: 'mixed', parts: ['choice', 'photo'], maxAssets: 1 })).toEqual({
+    expect(
+      responseAffordances({ mode: 'mixed', parts: ['choice', 'photo'], maxAssets: 1 }),
+    ).toEqual({
       text: false,
       choice: true,
       photo: true,
