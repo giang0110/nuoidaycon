@@ -1,0 +1,46 @@
+name: Format full catalog
+
+on:
+  push:
+    branches: [feat/full-catalog-60]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ github.event.head_commit.message != 'style: format full catalog' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/full-catalog-60
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: >-
+          pnpm exec prettier --write
+          content/seeds/index.ts
+          content/seeds/vi/handwriting/expansion.ts
+          content/seeds/vi/drawing_prompt/expansion.ts
+          content/seeds/vi/reflection/expansion.ts
+          content/seeds/vi/situation_judgment/expansion.ts
+          content/seeds/vi/story_comprehension/expansion.ts
+          content/seeds/vi/story_summary/expansion.ts
+          tests/unit/catalog-depth.test.ts
+          docs/superpowers/specs/2026-09-05-full-catalog-60-design.md
+          docs/superpowers/plans/2026-09-05-full-catalog-60.md
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .
+          git commit -m "style: format full catalog"
+          git push
