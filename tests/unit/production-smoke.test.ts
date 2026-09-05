@@ -150,8 +150,7 @@ describe('production smoke transport', () => {
   it('probes exactly the five allowed paths with manual GET redirects and no authorization', async () => {
     const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
     const fakeFetch: typeof fetch = async (input, init) => {
-      const url =
-        typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       calls.push({ url, init });
       return new Response('', {
         status: url.endsWith('/') || url.endsWith('/login') ? 200 : 307,
