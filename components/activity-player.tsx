@@ -2,12 +2,11 @@
 
 import { useActionState } from 'react';
 import type { ChildViewActivity } from '@/lib/domain/activity/child-view';
+import { responseAffordances } from '@/lib/domain/activity/response-affordances';
 import type { SubmitState } from '@/app/(child)/play/[assignmentId]/actions';
 import { DEFAULT_LOCALE, getMessages } from '@/lib/i18n';
 
 const t = getMessages(DEFAULT_LOCALE);
-
-type ResponsePart = 'text' | 'choice' | 'photo';
 
 /**
  * The six activity renderers.
@@ -57,21 +56,6 @@ export function ActivityPlayer({
   );
 }
 
-function responseIncludes(response: ChildViewActivity['response'], part: ResponsePart): boolean {
-  switch (response.mode) {
-    case 'text':
-      return part === 'text';
-    case 'choice':
-      return part === 'choice';
-    case 'photo':
-      return part === 'photo';
-    case 'mixed':
-      return response.parts.includes(part);
-    case 'none':
-      return false;
-  }
-}
-
 function textSpec(response: ChildViewActivity['response'], id: string) {
   if (response.mode !== 'text') return null;
   return response.fields.find((field) => field.id === id) ?? null;
@@ -109,6 +93,8 @@ function TextField({ id, label, maxWords }: { id: string; label: string; maxWord
 }
 
 function Body({ activity, printHref }: { activity: ChildViewActivity; printHref: string }) {
+  const affordances = responseAffordances(activity.response);
+
   switch (activity.type) {
     case 'handwriting':
       return (
@@ -123,7 +109,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
           <a href={printHref} className="w-fit underline">
             {t.play.printThis}
           </a>
-          <PhotoField />
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
@@ -139,7 +125,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
           <a href={printHref} className="w-fit underline">
             {t.play.printThis}
           </a>
-          <PhotoField />
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
@@ -152,7 +138,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
               <li key={q.id} className="flex flex-col gap-3">
                 <p className="font-medium text-pretty">{q.prompt}</p>
                 {q.kind === 'multiple_choice' ? (
-                  responseIncludes(activity.response, 'choice') ? (
+                  affordances.choice ? (
                     <div className="flex flex-col gap-2">
                       {q.choices.map((choice) => (
                         <label
@@ -165,13 +151,13 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
                       ))}
                     </div>
                   ) : null
-                ) : responseIncludes(activity.response, 'text') ? (
+                ) : affordances.text ? (
                   <TextField id={q.id} label={t.play.yourAnswer} maxWords={q.maxWords} />
                 ) : null}
               </li>
             ))}
           </ol>
-          {responseIncludes(activity.response, 'photo') && <PhotoField />}
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
@@ -185,14 +171,14 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
               <li key={hint}>{hint}</li>
             ))}
           </ul>
-          {responseIncludes(activity.response, 'text') && (
+          {affordances.text && (
             <TextField
               id="summary"
               label={summarySpec?.label ?? t.play.yourAnswer}
               maxWords={summarySpec?.maxWords ?? activity.payload.guidance.maxWords}
             />
           )}
-          {responseIncludes(activity.response, 'photo') && <PhotoField />}
+          {affordances.photo && <PhotoField />}
         </div>
       );
     }
@@ -220,7 +206,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
               );
             })}
           </ol>
-          {responseIncludes(activity.response, 'photo') && <PhotoField />}
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
@@ -231,7 +217,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
           <p className="text-pretty">{activity.payload.scenario}</p>
           <p className="font-medium">{activity.payload.question}</p>
 
-          {responseIncludes(activity.response, 'choice') && activity.payload.options && (
+          {affordances.choice && activity.payload.options && (
             <fieldset className="flex flex-col gap-2">
               <legend className="sr-only">{t.play.chooseOne}</legend>
               {activity.payload.options.map((option) => (
@@ -251,14 +237,14 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
             {t.play.trustedAdult}: {activity.payload.trustedAdultPath.text}
           </p>
 
-          {responseIncludes(activity.response, 'text') && (
+          {affordances.text && (
             <TextField
               id="answer"
               label={answerSpec?.label ?? t.play.yourAnswer}
               maxWords={answerSpec?.maxWords ?? 150}
             />
           )}
-          {responseIncludes(activity.response, 'photo') && <PhotoField />}
+          {affordances.photo && <PhotoField />}
         </div>
       );
     }
