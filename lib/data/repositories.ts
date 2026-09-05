@@ -136,6 +136,7 @@ export interface SubmissionAssetRepository {
 
 export interface ReviewRepository {
   findByAssignment(assignmentId: string): Promise<AssignmentReview | null>;
+  listForAssignments(assignmentIds: readonly string[]): Promise<AssignmentReview[]>;
   create(input: Omit<AssignmentReview, 'id' | 'createdAt'>): Promise<AssignmentReview>;
 }
 

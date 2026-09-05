@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Child, ChildTypeProgress, Interest, NewChild, Parent } from '@/lib/domain/entities';
+import type {
+  AssignmentReview,
+  Child,
+  ChildTypeProgress,
+  Interest,
+  NewChild,
+  Parent,
+} from '@/lib/domain/entities';
 import type {
   ChildRepository,
   InterestRepository,
@@ -8,6 +15,7 @@ import type {
   TemplateRepository,
   AssignmentRepository,
   SubmissionRepository,
+  ReviewRepository,
 } from '@/lib/data/repositories';
 import { toAssignment, toChild, toInterest, toParent, toProgress, toTemplate } from './mappers';
 
@@ -24,6 +32,17 @@ type DB = SupabaseClient;
 
 function fail(context: string, error: { message: string } | null): never {
   throw new Error(`${context}: ${error?.message ?? 'unknown error'}`);
+}
+
+function toReview(row: Record<string, unknown>): AssignmentReview {
+  return {
+    id: row.id as string,
+    assignmentId: row.assignment_id as string,
+    reviewerId: row.reviewer_id as string,
+    verdict: row.verdict as AssignmentReview['verdict'],
+    note: (row.note as string | null) ?? null,
+    createdAt: row.created_at as string,
+  };
 }
 
 export function createParentRepository(db: DB): ParentRepository {
@@ -361,6 +380,48 @@ export function createSubmissionRepository(db: DB): SubmissionRepository {
       // Assets cascade at the database level.
       const { error } = await db.from('submissions').delete().eq('id', submissionId);
       if (error) fail('submissions.delete', error);
+    },
+  };
+}
+
+export function createReviewRepository(db: DB): ReviewRepository {
+  const columns = 'id, assignment_id, reviewer_id, verdict, note, created_at';
+
+  return {
+    async findByAssignment(assignmentId) {
+      const { data, error } = await db
+        .from('assignment_reviews')
+        .select(columns)
+        .eq('assignment_id', assignmentId)
+        .maybeSingle();
+      if (error) fail('reviews.findByAssignment', error);
+      return data ? toReview(data as Record<string, unknown>) : null;
+    },
+
+    async listForAssignments(assignmentIds) {
+      if (assignmentIds.length === 0) return [];
+
+      const { data, error } = await db
+        .from('assignment_reviews')
+        .select(columns)
+        .in('assignment_id', [...assignmentIds]);
+      if (error) fail('reviews.listForAssignments', error);
+      return (data ?? []).map((row) => toReview(row as Record<string, unknown>));
+    },
+
+    async create(input) {
+      const { data, error } = await db
+        .from('assignment_reviews')
+        .insert({
+          assignment_id: input.assignmentId,
+          reviewer_id: input.reviewerId,
+          verdict: input.verdict,
+          note: input.note,
+        })
+        .select(columns)
+        .single();
+      if (error) fail('reviews.create', error);
+      return toReview(data as Record<string, unknown>);
     },
   };
 }
