@@ -57,6 +57,9 @@ jobs:
       - name: Seed content validation
         run: pnpm validate:content
 
+      - name: Launch catalog depth
+        run: pnpm validate:content:launch
+
   database:
     name: Database security (RLS matrix)
     runs-on: ubuntu-latest
