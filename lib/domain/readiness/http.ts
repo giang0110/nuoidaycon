@@ -67,9 +67,11 @@ export function evaluateProductionHttp(
       : fail(
           'reachability',
           'Production routes are reachable',
-          `failed paths: ${[...missingPaths, ...transportFailures, ...publicStatusFailures]
-            .filter((path, index, paths) => paths.indexOf(path) === index)
-            .join(', ') || 'unknown'}`,
+          `failed paths: ${
+            [...missingPaths, ...transportFailures, ...publicStatusFailures]
+              .filter((path, index, paths) => paths.indexOf(path) === index)
+              .join(', ') || 'unknown'
+          }`,
         );
 
   const securityFailures: string[] = [];

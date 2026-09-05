@@ -101,7 +101,8 @@ describe('production HTTP readiness', () => {
 
   it('fails when a protected response loses private no-store cache semantics', () => {
     const probes = goodProbes();
-    probes.find((probe) => probe.path === '/play')!.headers['cache-control'] = 'public, max-age=300';
+    probes.find((probe) => probe.path === '/play')!.headers['cache-control'] =
+      'public, max-age=300';
 
     expect(status(evaluateProductionHttp(BASE, probes, expectations), 'protected-cache')).toBe(
       'fail',
