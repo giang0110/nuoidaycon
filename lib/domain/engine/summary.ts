@@ -230,19 +230,3 @@ export function buildWeeklySummary(
     untouchedTypes: allTypes.filter((type) => !byType[type]),
   };
 }
-
-/**
- * Transitional compatibility for the existing History page. Phase 10 moves
- * user-visible prose into the i18n catalogue before this helper is removed.
- */
-export function describeWeek(summary: WeeklySummary): string {
-  if (summary.assigned === 0) {
-    return 'Tuần này chưa có hoạt động nào được giao.';
-  }
-  const parts = [`Tuần này bố mẹ đã giao ${summary.assigned} hoạt động`];
-  parts.push(`con hoàn thành ${summary.completed}`);
-  if (summary.awaitingReview > 0) {
-    parts.push(`${summary.awaitingReview} bài đang chờ bố mẹ xem`);
-  }
-  return `${parts.join(', ')}.`;
-}
