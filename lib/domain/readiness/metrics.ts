@@ -17,7 +17,8 @@ export function metricsReadinessChecks(report: ProductReport): ReadinessCheck[] 
       id: 'completion-rate',
       label: 'Completion rate',
       status: report.completionRate === null ? 'insufficient_data' : 'pass',
-      detail: report.completionRate === null ? 'no denominator yet' : percentage(report.completionRate),
+      detail:
+        report.completionRate === null ? 'no denominator yet' : percentage(report.completionRate),
     },
     {
       id: 'week-one-return',
