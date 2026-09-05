@@ -57,10 +57,7 @@ export function ActivityPlayer({
   );
 }
 
-function responseIncludes(
-  response: ChildViewActivity['response'],
-  part: ResponsePart,
-): boolean {
+function responseIncludes(response: ChildViewActivity['response'], part: ResponsePart): boolean {
   switch (response.mode) {
     case 'text':
       return part === 'text';
