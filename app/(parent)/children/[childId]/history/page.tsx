@@ -42,7 +42,9 @@ export default async function HistoryPage({ params, searchParams }: HistoryPageP
     assignmentRepo.listForChild(childId),
     progressRepo.listForChild(childId),
   ]);
-  const reviews = await reviewRepo.listForAssignments(assignments.map((assignment) => assignment.id));
+  const reviews = await reviewRepo.listForAssignments(
+    assignments.map((assignment) => assignment.id),
+  );
   const reviewByAssignment = new Map(reviews.map((review) => [review.assignmentId, review]));
 
   const entries: SummaryInput[] = assignments.map((assignment) => ({
@@ -184,7 +186,10 @@ export default async function HistoryPage({ params, searchParams }: HistoryPageP
         ) : (
           <ul className="flex flex-col gap-2">
             {recentAssignments.map((assignment) => {
-              const snapshot = assignment.contentSnapshot as { title: string; type: SummaryInput['type'] };
+              const snapshot = assignment.contentSnapshot as {
+                title: string;
+                type: SummaryInput['type'];
+              };
               const verdict = reviewByAssignment.get(assignment.id)?.verdict;
               return (
                 <li key={assignment.id}>
