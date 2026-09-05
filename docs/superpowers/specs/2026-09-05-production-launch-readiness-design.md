@@ -69,11 +69,11 @@ The script performs only unauthenticated HTTP checks:
 
 1. public landing page is reachable over HTTPS;
 2. `/login` is reachable;
-3. protected routes such as `/dashboard`, `/play` and one route shape that does not require a real id redirect unauthenticated users to `/login` rather than exposing content;
+3. protected routes `/dashboard`, `/play` and `/settings` redirect unauthenticated users to `/login` rather than exposing content;
 4. global response headers include the expected CSP, HSTS, `X-Frame-Options` and `Referrer-Policy` values/presence from `lib/security/csp.ts` / `next.config.ts`;
 5. protected/session-bearing routes carry private/no-store cache semantics where applicable;
 6. responses do not expose `X-Powered-By`;
-7. redirects stay on the configured production origin or the expected local login path — no open redirect is accepted;
+7. redirects stay on the configured production origin and terminate at the expected login path — no cross-origin redirect is accepted;
 8. output is deterministic and machine-readable with `--json`.
 
 The script must have timeouts and clearly distinguish network failure, wrong status, wrong redirect and missing-header failures.
@@ -226,18 +226,29 @@ Unit/contract tests must cover at least:
 
 Existing full CI, RLS matrix and Playwright must remain green.
 
-## 8. Live verification sequence after merge
+## 8. Verification sequence
 
-After Phase 11 code merges:
+### Before merge
 
-1. confirm default branch post-merge CI is green;
-2. confirm Vercel deployment for the merge commit succeeds;
-3. run `pnpm smoke:production` against the production URL;
+1. implement the scripts/tests/docs on the Phase 11 feature branch;
+2. run ordinary CI and keep verify, RLS matrix and Playwright green;
+3. run `pnpm smoke:production` from the feature branch against the existing production URL;
 4. run DB readiness read-only against `lpqhxznwdsbvjwglsssr`;
 5. run `pnpm metrics --json` against the chosen staging/production database and record the empty/baseline semantics truthfully;
 6. re-run Supabase Security Advisor through the connected management surface if available;
-7. update the launch-readiness document with the machine-verified results and leave human-only gates unchecked;
-8. do not enable AI as part of Phase 11.
+7. update `LAUNCH_READINESS.md` in the same feature branch with machine-verified results while leaving human-only gates unchecked;
+8. code-review the complete Phase 11 diff and merge only when the branch CI and live read-only checks are clean.
+
+### After merge
+
+1. confirm the default branch points at the Phase 11 merge commit;
+2. confirm post-merge GitHub CI is green;
+3. confirm Vercel deployment for that merge commit succeeds;
+4. re-run the unauthenticated HTTP production smoke against the newly deployed merge commit;
+5. if the post-merge smoke differs from the pre-merge result, treat Phase 11 as incomplete and investigate rather than editing production data;
+6. do not enable AI as part of Phase 11.
+
+No documentation write is required directly on the default branch after merge; any material post-merge discrepancy must be fixed through another reviewed branch/PR.
 
 ## 9. Out of scope
 
@@ -258,7 +269,7 @@ Phase 11 is complete when:
 - deployment/readiness docs accurately state that the app is deployed;
 - production smoke and DB-readiness operator scripts exist, are read-only and are covered by tests;
 - all ordinary CI jobs remain green;
-- a live HTTP smoke run passes against production;
+- a live HTTP smoke run passes against production before merge and again after the merge deployment;
 - a live read-only DB readiness run passes the machine-verifiable Supabase/catalog/security checks;
 - metrics baseline is run and reported with correct empty-data semantics;
 - the final launch-readiness document clearly separates machine-passed gates from human-pending gates;
