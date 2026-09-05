@@ -197,7 +197,9 @@ export default async function HistoryPage({ params, searchParams }: HistoryPageP
                     href={`/assignments/${assignment.id}`}
                     className="border-parent-border flex flex-col gap-0.5 rounded-xl border px-4 py-3"
                   >
-                    <span className="text-parent-muted text-xs">{t.activityType[snapshot.type]}</span>
+                    <span className="text-parent-muted text-xs">
+                      {t.activityType[snapshot.type]}
+                    </span>
                     <span className="font-medium">{snapshot.title}</span>
                     <span className="text-parent-muted text-sm">
                       {new Date(assignment.assignedAt).toLocaleDateString('vi-VN')}
