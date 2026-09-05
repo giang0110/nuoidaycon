@@ -11,7 +11,19 @@ describe('response affordances', () => {
   ] as const)('%s exposes only the inputs allowed by its mode', (mode, expected) => {
     const response =
       mode === 'text'
-        ? ({ mode, fields: [{ id: 'q1', label: 'Trả lời', minWords: 0, maxWords: 20 }] } as const)
+        ? ({
+            mode,
+            fields: [
+              {
+                id: 'q1',
+                label: 'Trả lời',
+                minWords: 0,
+                maxWords: 20,
+                sentenceStarters: [],
+              },
+            ],
+            allowPhotoInstead: true,
+          } as const)
         : mode === 'choice'
           ? ({ mode, autoScored: true } as const)
           : mode === 'photo'
