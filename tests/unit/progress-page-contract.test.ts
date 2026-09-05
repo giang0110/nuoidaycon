@@ -1,16 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const historyPage = readFileSync(
-  'app/(parent)/children/[childId]/history/page.tsx',
-  'utf8',
-);
+const historyPage = readFileSync('app/(parent)/children/[childId]/history/page.tsx', 'utf8');
 const dashboardPage = readFileSync('app/(parent)/dashboard/page.tsx', 'utf8');
 const childPage = readFileSync('app/(parent)/children/[childId]/page.tsx', 'utf8');
 const summaryModule = readFileSync('lib/domain/engine/summary.ts', 'utf8');
 
 const historyBlock = (source: string) => {
-  const match = source.match(/history:\s*\{([\s\S]*?)\n\s*\},\n\s*(?:print|ai|library|dashboard):/);
+  const match = source.match(
+    /history:\s*\{([\s\S]*?)\n\s*\},\n\s*(?:print|ai|library|dashboard):/,
+  );
   return match?.[1] ?? '';
 };
 
