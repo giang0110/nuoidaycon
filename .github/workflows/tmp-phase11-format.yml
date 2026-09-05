@@ -1,0 +1,44 @@
+name: Temporary Phase 11 formatter
+
+on:
+  push:
+    branches:
+      - feat/phase-11-production-launch-readiness
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/phase-11-production-launch-readiness
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format only Phase 11 files added in this step
+        run: >-
+          pnpm exec prettier --write
+          scripts/production-smoke.ts
+          package.json
+          docs/superpowers/plans/2026-09-06-production-launch-readiness.md
+
+      - name: Commit formatted files and remove this temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/production-smoke.ts package.json docs/superpowers/plans/2026-09-06-production-launch-readiness.md
+          git rm .github/workflows/tmp-phase11-format.yml
+          git commit -m 'style: format Phase 11 smoke files'
+          git push origin HEAD:feat/phase-11-production-launch-readiness
