@@ -25,7 +25,7 @@ const u1 = [
   'Lớp của Huy làm một bảng quan sát mây trong năm ngày.',
   'Mỗi buổi sáng, nhóm ghi hình dạng mây và mức độ sáng của bầu trời.',
   'Ngày đầu trời trong, còn ngày thứ ba có nhiều mây xám hơn.',
-  'Khi so các ghi chép, Huy nhận ra chỉ một lần quan sát chưa đủ để thấy xu hướng.',
+  'So các ghi chép, Huy nhận ra một lần quan sát chưa đủ để thấy xu hướng.',
 ];
 
 const p1 = [
