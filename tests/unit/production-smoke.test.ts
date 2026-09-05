@@ -47,7 +47,7 @@ function goodProbes(): HttpProbeResult[] {
       status: 307,
       location: `${BASE}/login?next=${encodeURIComponent(path)}`,
       headers: commonHeaders('private, no-store, max-age=0'),
-      error: null as const,
+      error: null,
     })),
   ];
 }
