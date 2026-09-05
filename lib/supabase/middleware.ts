@@ -42,6 +42,15 @@ export function isAuthPath(pathname: string): boolean {
 }
 
 /**
+ * Supabase SSR stores the session in `sb-<project-ref>-auth-token`, optionally
+ * split into numbered chunks. We only need to know whether a session MAY be
+ * present here; `auth.getUser()` remains the authority that verifies it.
+ */
+export function hasSupabaseSessionCookie(cookieNames: readonly string[]): boolean {
+  return cookieNames.some((name) => name.startsWith('sb-') && name.includes('-auth-token'));
+}
+
+/**
  * Refresh the session cookie and gate protected routes.
  *
  * This is a convenience redirect, not the authorisation boundary — RLS is
@@ -50,6 +59,24 @@ export function isAuthPath(pathname: string): boolean {
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   let response = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+
+  const hasSession = hasSupabaseSessionCookie(request.cookies.getAll().map(({ name }) => name));
+
+  // An unauthenticated request does not need an auth-server round trip. This
+  // keeps public pages independent of Supabase availability and lets protected
+  // routes reject a missing session immediately. A present cookie is still
+  // verified below — cookie presence is never treated as authentication.
+  if (!hasSession) {
+    if (isProtectedPath(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('next', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    return response;
+  }
 
   const env = getPublicEnv();
 
@@ -77,8 +104,6 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   if (!user && isProtectedPath(pathname)) {
     const url = request.nextUrl.clone();
