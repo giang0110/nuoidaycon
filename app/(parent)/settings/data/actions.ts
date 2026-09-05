@@ -2,9 +2,6 @@
 
 import { redirect } from 'next/navigation';
 import { createClient, requireParentId } from '@/lib/supabase/server';
-import { getMessages } from '@/lib/i18n';
-
-const t = getMessages('vi');
 
 export interface DataState {
   error?: string;
