@@ -16,21 +16,30 @@ Read these before changing anything. They are the contract, not background readi
 | [PRODUCT_SPEC.md](docs/product/PRODUCT_SPEC.md) | Principles, MVP scope and non-goals, architecture, database model, RLS |
 | [ACTIVITY_MODEL.md](docs/product/ACTIVITY_MODEL.md) | The canonical Activity schema and its validation layers |
 | [CHILD_SAFETY.md](docs/product/CHILD_SAFETY.md) | Hard prohibitions, age policy, content rules, security controls |
-| [AI_CONTENT_RULES.md](docs/product/AI_CONTENT_RULES.md) | The Phase 8 AI pipeline — design only, not built |
+| [AI_CONTENT_RULES.md](docs/product/AI_CONTENT_RULES.md) | The parent-only AI generation pipeline and activation gates; implemented but disabled at launch |
 | [UX_FLOW.md](docs/product/UX_FLOW.md) | Routes, navigation, core flows, screens |
-| [Implementation plan](docs/superpowers/plans/2026-08-25-parenting-app-mvp.md) | The ten phases and what "done" means for each |
+| [MVP implementation plan](docs/superpowers/plans/2026-08-25-parenting-app-mvp.md) | The original phases and what "done" means for each |
+| [Launch readiness](docs/ops/LAUNCH_READINESS.md) | Machine-verifiable release gates, product metrics, and human-only launch gates |
 
 ## Status
 
-**All nine phases complete — production-ready, not deployed.**
+**Deployed to production; engineering launch-readiness verification is in progress.**
 
-Parents can sign up, create child profiles, browse and assign activities from a curated
-Vietnamese catalog, hand the device to a child in a PIN-gated child mode, review the
-work, and print worksheets. AI generation exists behind a mandatory parent approval
-gate and ships switched off.
+Production: `https://nuoidaycon-eight.vercel.app`
 
-See [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md) for what a human still has to do,
-including an honest list of what has not been verified.
+The app is deployed on Vercel and backed by the live Supabase project documented in
+[docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md). The curated launch catalogue contains
+60 approved Vietnamese activities, exactly 15 per age band with all six activity types
+represented in every band.
+
+Parents can sign up, create child profiles, browse and assign activities, hand the device
+to a child in PIN-gated child mode, review work, view 7/30-day progress insights, and
+print worksheets. Parent-only AI generation is implemented behind mandatory review and
+approval, but `AI_GENERATION_ENABLED=false` remains the launch state.
+
+Deployment is not the same as launch approval. SMTP/Auth email delivery, a real phone
+photo/EXIF check, physical A4 print fidelity, data residency and legal review remain
+human gates; see [LAUNCH_READINESS.md](docs/ops/LAUNCH_READINESS.md).
 
 ## Stack
 
@@ -63,7 +72,10 @@ Requires Node 22+ and pnpm 10+.
 | `pnpm check:no-llm` | Asserts one provider abstraction, all others banned |
 | `pnpm audit:security` | Static security audit (secrets, RLS, storage, CSP, logging) |
 | `pnpm check:i18n` | Asserts locale catalogues share a key shape |
-| **`pnpm verify`** | **Everything above except e2e — run before pushing** |
+| `pnpm metrics` | First-party aggregate product metrics from an operator-supplied DB URL |
+| `pnpm smoke:production` | Read-only unauthenticated HTTP production smoke checks |
+| `pnpm readiness:db` | Read-only production database/catalog/security readiness checks |
+| **`pnpm verify`** | **Everything above except e2e and operator-only live checks — run before pushing** |
 
 ### Running the database security tests
 
@@ -84,6 +96,19 @@ rather than let a missing database look like a pass.
 schemas for vanilla PostgreSQL to run the real policies. It lives outside
 `supabase/migrations/` so it can never reach a project.
 
+### Running production readiness checks
+
+These commands are operator-run release gates, not ordinary CI jobs:
+
+```bash
+PRODUCTION_BASE_URL=https://nuoidaycon-eight.vercel.app pnpm smoke:production
+PRODUCTION_DATABASE_URL=<connection-string> pnpm readiness:db
+METRICS_DATABASE_URL=<connection-string> pnpm metrics --json
+```
+
+`PRODUCTION_DATABASE_URL` and `METRICS_DATABASE_URL` are trusted-shell inputs only and
+must never be configured in Vercel or GitHub Actions.
+
 ### Running Playwright in a sandbox
 
 If the environment ships a preinstalled Chromium whose build differs from the one
@@ -95,26 +120,26 @@ PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e
 
 ## Architecture in one paragraph
 
-`lib/domain` is pure: the activity schema, the age policy, the recommendation engine and
-the safety validators are plain functions over interfaces, with **no** imports of
-Supabase, Next.js or React — enforced by ESLint, not by discipline. `lib/data` holds
-repository interfaces and their Supabase implementations. Authorisation is Row Level
-Security: RLS is enabled on all twelve tables, `anon` holds no privilege at all, the
-curated catalog is read-only for clients at the privilege level, and the service-role key
-is barred from every request path. Assignments store an immutable snapshot of the
-activity — enforced by a database trigger, not by convention — and answer keys are
-stripped server-side before anything reaches the child's browser.
+`lib/domain` is pure: the activity schema, age policy, recommendation/progress engines,
+readiness evaluators and safety validators are plain functions over interfaces, with
+**no** imports of Supabase, Next.js or React — enforced by ESLint, not by discipline.
+`lib/data` holds repository interfaces and their Supabase implementations. Authorisation
+is Row Level Security: application data tables are RLS protected, `anon` holds no public
+table privilege, and the service-role key is barred from every request path. Assignments
+store an immutable snapshot of the activity — enforced by a database trigger, not by
+convention — and answer keys are stripped server-side before anything reaches the
+child's browser.
 
 ## Layout
 
 ```
 app/            routes — (marketing) (auth) (parent) (child) print
 components/     UI primitives and app components
-lib/domain/     pure: activity schema, policy, engine, safety validators
+lib/domain/     pure: activity schema, policy, engines, readiness, safety validators
 lib/data/       repository interfaces + Supabase implementations
 lib/i18n/       message catalogues (vi primary, en keys present)
 content/seeds/  curated activities, validated in CI
 supabase/       migrations (schema, functions, RLS, storage) + local test shim
 tests/          unit · integration · e2e
-scripts/        CI guards and the content validator
+scripts/        CI guards, content validation, metrics and operator readiness tools
 ```
