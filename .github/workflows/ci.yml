@@ -104,6 +104,11 @@ jobs:
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest
+    env:
+      # This job serves Next over plain HTTP on localhost. Safari/WebKit applies
+      # CSP upgrade-insecure-requests to localhost and would otherwise upgrade
+      # the app's own CSS/navigation to HTTPS, where the harness has no TLS.
+      E2E_HTTP_SERVER: '1'
     steps:
       - uses: actions/checkout@v4
 
