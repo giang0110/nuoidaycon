@@ -78,15 +78,24 @@ export default async function DashboardPage() {
             <h2 className="text-sm font-medium">{t.child.listTitle}</h2>
             <ul className="flex flex-col gap-2">
               {perChild.map(({ child, open }) => (
-                <li key={child.id}>
+                <li
+                  key={child.id}
+                  className="border-parent-border bg-parent-surface flex flex-col rounded-xl border"
+                >
                   <Link
                     href={`/children/${child.id}`}
-                    className="border-parent-border bg-parent-surface flex min-h-14 items-center justify-between rounded-xl border px-4"
+                    className="flex min-h-14 items-center justify-between px-4"
                   >
                     <span>{child.displayName}</span>
                     <span className="text-parent-muted text-sm">
                       {open.length > 0 ? `${open.length} ${t.play.activities}` : ''}
                     </span>
+                  </Link>
+                  <Link
+                    href={`/children/${child.id}/history`}
+                    className="border-parent-border text-parent-accent border-t px-4 py-2 text-sm underline"
+                  >
+                    {t.history.progressLink}
                   </Link>
                 </li>
               ))}
