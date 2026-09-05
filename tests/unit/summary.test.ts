@@ -112,8 +112,15 @@ describe('buildProgressSummary', () => {
   });
 
   it('returns deterministic insight ids in priority order and caps them at three', () => {
+    const insightEntries: SummaryInput[] = [
+      { assignedAt: daysAgo(1), type: 'handwriting', status: 'reviewed', verdict: 'just_right' },
+      { assignedAt: daysAgo(2), type: 'handwriting', status: 'reviewed', verdict: 'too_hard' },
+      { assignedAt: daysAgo(3), type: 'handwriting', status: 'assigned', verdict: null },
+      { assignedAt: daysAgo(4), type: 'reflection', status: 'submitted', verdict: null },
+    ];
+
     const summary = buildProgressSummary({
-      entries,
+      entries: insightEntries,
       allTypes: ACTIVITY_TYPES,
       typeDifficulty,
       now: NOW,
@@ -123,7 +130,7 @@ describe('buildProgressSummary', () => {
     expect(summary.insights).toEqual([
       { id: 'awaiting_review', count: 1 },
       { id: 'untouched_type', type: 'drawing_prompt', windowDays: 7 },
-      { id: 'dominant_type', type: 'handwriting', count: 2 },
+      { id: 'dominant_type', type: 'handwriting', count: 3 },
     ]);
     expect(summary.insights).toHaveLength(3);
   });
