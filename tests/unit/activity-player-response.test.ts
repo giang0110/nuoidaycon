@@ -22,7 +22,11 @@ const common = {
   instructions: 'Con hãy làm hoạt động này nhé.',
   difficulty: 1,
   estimatedMinutes: 8,
-  printable: { supported: true as const, layout: 'prompt_card' as const, pageEstimate: 1 },
+  printable: {
+    supported: true as const,
+    layout: 'prompt_card' as const,
+    pageEstimate: 1,
+  },
 };
 
 const action = async () => ({});
@@ -68,7 +72,11 @@ describe('ActivityPlayer response-mode controls', () => {
           title: 'Hạt mầm',
           paragraphs: ['Hạt mầm nằm trong đất ấm. Một hôm, mầm xanh nhú lên đón nắng.'],
           wordCount: 20,
-          readingLevel: { avgWordsPerSentence: 8, avgSyllablesPerWord: 1, band: 'early' },
+          readingLevel: {
+            avgWordsPerSentence: 8,
+            avgSyllablesPerWord: 1,
+            band: 'early',
+          },
         },
         guidance: {
           minWords: 5,
@@ -89,7 +97,8 @@ describe('ActivityPlayer response-mode controls', () => {
       type: 'situation_judgment',
       response: { mode: 'choice', autoScored: true },
       payload: {
-        scenario: 'Trong giờ chơi, con thấy hai bạn cùng muốn dùng một hộp bút màu đang để trên bàn.',
+        scenario:
+          'Trong giờ chơi, con thấy hai bạn cùng muốn dùng một hộp bút màu đang để trên bàn.',
         question: 'Con sẽ chọn cách nào?',
         mode: 'guided',
         options: [
