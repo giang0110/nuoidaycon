@@ -111,8 +111,7 @@ export async function collectDatabaseSnapshot(db: Client): Promise<DatabaseReadi
       ? {
           id: bucketRow.id,
           public: bucketRow.public,
-          fileSizeLimit:
-            bucketRow.fileSizeLimit === null ? null : Number(bucketRow.fileSizeLimit),
+          fileSizeLimit: bucketRow.fileSizeLimit === null ? null : Number(bucketRow.fileSizeLimit),
           allowedMimeTypes: bucketRow.allowedMimeTypes,
         }
       : null,

@@ -156,7 +156,9 @@ function evaluateSchema(snapshot: DatabaseReadinessSnapshot): ReadinessCheck {
     'schema',
     'Required public tables',
     missing.length === 0,
-    missing.length === 0 ? `${EXPECTED_TABLES.length} required tables present` : `missing ${missing.join(', ')}`,
+    missing.length === 0
+      ? `${EXPECTED_TABLES.length} required tables present`
+      : `missing ${missing.join(', ')}`,
   );
 }
 
@@ -199,7 +201,9 @@ function evaluateFunctions(snapshot: DatabaseReadinessSnapshot): ReadinessCheck 
   );
   const exposed = matching.filter((fn) => fn.schema === 'public' && fn.securityDefiner);
   const privateByName = new Map(
-    matching.filter((fn) => fn.schema === 'private' && fn.securityDefiner).map((fn) => [fn.name, fn]),
+    matching
+      .filter((fn) => fn.schema === 'private' && fn.securityDefiner)
+      .map((fn) => [fn.name, fn]),
   );
   const missing = PRIVILEGED_FUNCTIONS.filter((name) => !privateByName.has(name));
   const wrongPrivileges = PRIVILEGED_FUNCTIONS.filter((name) => {
@@ -246,11 +250,14 @@ function evaluateCatalog(
   const exactRows =
     actualKeys.length === expectedKeys.length &&
     actualKeys.every((key, index) => key === expectedKeys[index]);
-  const uniqueSlugs = new Set(snapshot.catalog.map((row) => row.slug)).size === snapshot.catalog.length;
+  const uniqueSlugs =
+    new Set(snapshot.catalog.map((row) => row.slug)).size === snapshot.catalog.length;
 
   const expectedCoverage = EXPECTED_BANDS.every((band) => {
     const rows = expectedCatalog.filter((row) => row.ageBand === band);
-    return rows.length === 15 && new Set(rows.map((row) => row.type)).size === EXPECTED_TYPES.length;
+    return (
+      rows.length === 15 && new Set(rows.map((row) => row.type)).size === EXPECTED_TYPES.length
+    );
   });
 
   const ok =
@@ -264,7 +271,9 @@ function evaluateCatalog(
     'catalog',
     'Launch activity catalog',
     ok,
-    ok ? '60 approved seed activities match the repository catalog' : 'live seed catalog differs from the canonical 60 activities',
+    ok
+      ? '60 approved seed activities match the repository catalog'
+      : 'live seed catalog differs from the canonical 60 activities',
   );
 }
 

@@ -111,10 +111,7 @@ function goodSnapshot(): DatabaseReadinessSnapshot {
   };
 }
 
-function checkById(
-  checks: ReturnType<typeof evaluateDatabaseReadiness>,
-  id: string,
-) {
+function checkById(checks: ReturnType<typeof evaluateDatabaseReadiness>, id: string) {
   const check = checks.find((item) => item.id === id);
   expect(check, `missing readiness check ${id}`).toBeDefined();
   return check!;
@@ -143,9 +140,9 @@ describe('database readiness evaluator', () => {
     snapshot.migrationTableExists = false;
     snapshot.migrationVersions = [];
 
-    expect(checkById(evaluateDatabaseReadiness(snapshot, expectedCatalog()), 'migrations').status).toBe(
-      'fail',
-    );
+    expect(
+      checkById(evaluateDatabaseReadiness(snapshot, expectedCatalog()), 'migrations').status,
+    ).toBe('fail');
   });
 
   it('fails an anon grant or an exposed privileged security-definer helper', () => {
@@ -177,7 +174,10 @@ describe('database readiness evaluator', () => {
   });
 
   it('treats zero launch-context counts as measured facts, not a failure', () => {
-    const check = checkById(evaluateDatabaseReadiness(goodSnapshot(), expectedCatalog()), 'launch-context');
+    const check = checkById(
+      evaluateDatabaseReadiness(goodSnapshot(), expectedCatalog()),
+      'launch-context',
+    );
     expect(check.status).toBe('pass');
     expect(check.detail).toBe('authUsers=0, profiles=0, children=0');
   });
