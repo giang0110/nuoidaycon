@@ -34,6 +34,11 @@ describe('Phase 10 parent progress page contract', () => {
     expect(historyPage).toContain('summary.difficultyByType[type]');
   });
 
+  it('renders assignment status alongside review verdict in recent history', () => {
+    expect(historyPage).toContain('statusKey(assignment.status)');
+    expect(historyPage).toContain('t.history[statusKey(assignment.status)]');
+  });
+
   it('links to the upgraded screen from both child detail and dashboard', () => {
     expect(childPage).toContain('/children/${child.id}/history');
     expect(dashboardPage).toContain('/children/${child.id}/history');
@@ -56,6 +61,11 @@ describe('Phase 10 parent progress page contract', () => {
       'insightUntouchedType',
       'insightDominantType',
       'insightDifficulty',
+      'statusAssigned',
+      'statusInProgress',
+      'statusSubmitted',
+      'statusReviewed',
+      'statusSkipped',
     ];
 
     const viHistory = historyBlock(viMessages);
