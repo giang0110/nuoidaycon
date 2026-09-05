@@ -57,7 +57,10 @@ export function ActivityPlayer({
   );
 }
 
-function responseIncludes(response: ChildViewActivity['response'], part: ResponsePart): boolean {
+function responseIncludes(
+  response: ChildViewActivity['response'],
+  part: ResponsePart,
+): boolean {
   switch (response.mode) {
     case 'text':
       return part === 'text';
@@ -213,7 +216,9 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
                       ))}
                     </ul>
                   )}
-                  {field && <TextField id={field.id} label={field.label} maxWords={field.maxWords} />}
+                  {field && (
+                    <TextField id={field.id} label={field.label} maxWords={field.maxWords} />
+                  )}
                 </li>
               );
             })}
