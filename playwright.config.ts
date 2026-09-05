@@ -34,7 +34,9 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
-    command: 'pnpm build && pnpm start',
+    // CI already builds in a dedicated step above Playwright. Rebuilding here
+    // can consume the entire webServer startup timeout before `next start` runs.
+    command: process.env.CI ? 'pnpm start' : 'pnpm build && pnpm start',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
