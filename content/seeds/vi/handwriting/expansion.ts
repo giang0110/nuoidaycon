@@ -48,7 +48,7 @@ export const handwritingExpansionSeeds: Seed[] = [
       repetitions: 2,
       ruling: 'five_line',
       tracingGuides: false,
-      focusDiacritics: ['trời', 'nắng', 'trắng', 'thổi'],
+      focusDiacritics: ['ờ', 'ắ', 'ắ', 'ổ'],
     },
   },
   {
@@ -72,7 +72,7 @@ export const handwritingExpansionSeeds: Seed[] = [
       repetitions: 1,
       ruling: 'single_line',
       tracingGuides: false,
-      focusDiacritics: ['ánh', 'nước', 'nhiều'],
+      focusDiacritics: ['á', 'ướ', 'ề'],
     },
   },
   {
@@ -96,7 +96,7 @@ export const handwritingExpansionSeeds: Seed[] = [
       repetitions: 2,
       ruling: 'four_line',
       tracingGuides: false,
-      focusDiacritics: ['lượng', 'khí', 'nhiệt', 'ánh'],
+      focusDiacritics: ['ượ', 'í', 'ệ', 'á'],
     },
   },
   {
@@ -124,7 +124,7 @@ export const handwritingExpansionSeeds: Seed[] = [
       repetitions: 1,
       ruling: 'single_line',
       tracingGuides: false,
-      focusDiacritics: ['Trái', 'Đất', 'Trời', 'nhiều'],
+      focusDiacritics: ['á', 'ấ', 'ờ', 'ề'],
     },
   },
   {
@@ -181,7 +181,7 @@ export const handwritingExpansionSeeds: Seed[] = [
       repetitions: 1,
       ruling: 'single_line',
       tracingGuides: false,
-      focusDiacritics: ['Chuẩn', 'nước', 'tiết', 'gọn'],
+      focusDiacritics: ['ẩ', 'ướ', 'ế', 'ọ'],
     },
   },
   {
