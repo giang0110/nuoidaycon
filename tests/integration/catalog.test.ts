@@ -76,13 +76,11 @@ describeDb('seeded catalog', () => {
     await db?.end();
   });
 
-  it('seeds the MVP target of 20–25 original activities', async () => {
+  it('seeds exactly 60 original launch activities', async () => {
     const r = await db.query<{ n: string }>(
       `select count(*)::text as n from public.activity_templates where source = 'seed' and ${REAL}`,
     );
-    const count = Number(r.rows[0]!.n);
-    expect(count).toBeGreaterThanOrEqual(20);
-    expect(count).toBeLessThanOrEqual(25);
+    expect(Number(r.rows[0]!.n)).toBe(60);
   });
 
   it('covers all six activity types', async () => {
@@ -142,7 +140,7 @@ describeDb('seeded catalog', () => {
       parentId,
       `select id from public.activity_templates where ${REAL}`,
     );
-    expect(r.rowCount).toBeGreaterThanOrEqual(20);
+    expect(r.rowCount).toBe(60);
   });
 
   it('is not readable by anon', async () => {
