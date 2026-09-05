@@ -9,10 +9,7 @@ import { buildContentSecurityPolicy, SECURITY_HEADERS } from './lib/security/csp
  * localhost HTTP E2E harness disables only that directive because WebKit
  * otherwise upgrades its own CSS/navigation requests to HTTPS.
  */
-const CSP = buildContentSecurityPolicy(
-  process.env.NODE_ENV,
-  process.env.E2E_HTTP_SERVER !== '1',
-);
+const CSP = buildContentSecurityPolicy(process.env.NODE_ENV, process.env.E2E_HTTP_SERVER !== '1');
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
