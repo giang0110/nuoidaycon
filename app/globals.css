@@ -45,20 +45,16 @@
     color: var(--color-parent-fg);
     font-family: var(--font-sans);
   }
-}
 
-/*
- * Accessibility: no motion that cannot be disabled (UX_FLOW.md §4.3).
- * Keep this rule unlayered so its !important declarations also win reliably
- * over element-level transition declarations in WebKit/Safari.
- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  /* Accessibility: no motion that cannot be disabled (UX_FLOW.md §4.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
