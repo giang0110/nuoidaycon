@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import type { ChildViewActivity } from '@/lib/domain/activity/child-view';
+import { responseAffordances } from '@/lib/domain/activity/response-affordances';
 import type { SubmitState } from '@/app/(child)/play/[assignmentId]/actions';
 import { DEFAULT_LOCALE, getMessages } from '@/lib/i18n';
 
@@ -55,6 +56,11 @@ export function ActivityPlayer({
   );
 }
 
+function textSpec(response: ChildViewActivity['response'], id: string) {
+  if (response.mode !== 'text') return null;
+  return response.fields.find((field) => field.id === id) ?? null;
+}
+
 function PhotoField() {
   return (
     <label className="flex flex-col gap-2">
@@ -87,6 +93,8 @@ function TextField({ id, label, maxWords }: { id: string; label: string; maxWord
 }
 
 function Body({ activity, printHref }: { activity: ChildViewActivity; printHref: string }) {
+  const affordances = responseAffordances(activity.response);
+
   switch (activity.type) {
     case 'handwriting':
       return (
@@ -101,7 +109,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
           <a href={printHref} className="w-fit underline">
             {t.play.printThis}
           </a>
-          <PhotoField />
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
@@ -117,7 +125,7 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
           <a href={printHref} className="w-fit underline">
             {t.play.printThis}
           </a>
-          <PhotoField />
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
@@ -130,27 +138,31 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
               <li key={q.id} className="flex flex-col gap-3">
                 <p className="font-medium text-pretty">{q.prompt}</p>
                 {q.kind === 'multiple_choice' ? (
-                  <div className="flex flex-col gap-2">
-                    {q.choices.map((choice) => (
-                      <label
-                        key={choice.id}
-                        className="bg-child-surface flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-4"
-                      >
-                        <input type="radio" name={`choice.${q.id}`} value={choice.id} />
-                        <span>{choice.text}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
+                  affordances.choice ? (
+                    <div className="flex flex-col gap-2">
+                      {q.choices.map((choice) => (
+                        <label
+                          key={choice.id}
+                          className="bg-child-surface flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-4"
+                        >
+                          <input type="radio" name={`choice.${q.id}`} value={choice.id} />
+                          <span>{choice.text}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null
+                ) : affordances.text ? (
                   <TextField id={q.id} label={t.play.yourAnswer} maxWords={q.maxWords} />
-                )}
+                ) : null}
               </li>
             ))}
           </ol>
+          {affordances.photo && <PhotoField />}
         </div>
       );
 
-    case 'story_summary':
+    case 'story_summary': {
+      const summarySpec = textSpec(activity.response, 'summary');
       return (
         <div className="flex flex-col gap-6">
           <Story story={activity.payload.story} />
@@ -159,40 +171,53 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
               <li key={hint}>{hint}</li>
             ))}
           </ul>
-          <TextField
-            id="summary"
-            label={t.play.yourAnswer}
-            maxWords={activity.payload.guidance.maxWords}
-          />
+          {affordances.text && (
+            <TextField
+              id="summary"
+              label={summarySpec?.label ?? t.play.yourAnswer}
+              maxWords={summarySpec?.maxWords ?? activity.payload.guidance.maxWords}
+            />
+          )}
+          {affordances.photo && <PhotoField />}
         </div>
       );
+    }
 
     case 'reflection':
       return (
-        <ol className="flex flex-col gap-6">
-          {activity.payload.questions.map((q) => (
-            <li key={q.id} className="flex flex-col gap-3">
-              <p className="font-medium text-pretty">{q.prompt}</p>
-              {q.sentenceStarters.length > 0 && (
-                <ul className="text-child-muted flex flex-col gap-0.5 text-base">
-                  {q.sentenceStarters.map((starter) => (
-                    <li key={starter}>{starter}</li>
-                  ))}
-                </ul>
-              )}
-              <TextField id={q.id} label={t.play.yourAnswer} maxWords={120} />
-            </li>
-          ))}
-        </ol>
+        <div className="flex flex-col gap-6">
+          <ol className="flex flex-col gap-6">
+            {activity.payload.questions.map((q) => {
+              const field = textSpec(activity.response, q.id);
+              return (
+                <li key={q.id} className="flex flex-col gap-3">
+                  <p className="font-medium text-pretty">{q.prompt}</p>
+                  {q.sentenceStarters.length > 0 && (
+                    <ul className="text-child-muted flex flex-col gap-0.5 text-base">
+                      {q.sentenceStarters.map((starter) => (
+                        <li key={starter}>{starter}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {field && (
+                    <TextField id={field.id} label={field.label} maxWords={field.maxWords} />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          {affordances.photo && <PhotoField />}
+        </div>
       );
 
-    case 'situation_judgment':
+    case 'situation_judgment': {
+      const answerSpec = textSpec(activity.response, 'answer');
       return (
         <div className="flex flex-col gap-5">
           <p className="text-pretty">{activity.payload.scenario}</p>
           <p className="font-medium">{activity.payload.question}</p>
 
-          {activity.payload.options && (
+          {affordances.choice && activity.payload.options && (
             <fieldset className="flex flex-col gap-2">
               <legend className="sr-only">{t.play.chooseOne}</legend>
               {activity.payload.options.map((option) => (
@@ -212,9 +237,17 @@ function Body({ activity, printHref }: { activity: ChildViewActivity; printHref:
             {t.play.trustedAdult}: {activity.payload.trustedAdultPath.text}
           </p>
 
-          <TextField id="answer" label={t.play.yourAnswer} maxWords={150} />
+          {affordances.text && (
+            <TextField
+              id="answer"
+              label={answerSpec?.label ?? t.play.yourAnswer}
+              maxWords={answerSpec?.maxWords ?? 150}
+            />
+          )}
+          {affordances.photo && <PhotoField />}
         </div>
       );
+    }
   }
 }
 

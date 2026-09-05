@@ -40,6 +40,21 @@ describe("'unsafe-eval' is a development-only relaxation", () => {
   });
 });
 
+describe('HTTP E2E keeps the production CSP except for transport upgrade', () => {
+  it('keeps upgrade-insecure-requests in the real production policy', () => {
+    expect(buildContentSecurityPolicy('production')).toContain('upgrade-insecure-requests');
+  });
+
+  it('can omit transport upgrade for the explicit localhost HTTP harness', () => {
+    const e2e = buildContentSecurityPolicy('production', false);
+    expect(e2e).not.toContain('upgrade-insecure-requests');
+    expect(e2e).toContain("default-src 'self'");
+    expect(e2e).toContain("frame-ancestors 'none'");
+    expect(e2e).toContain("form-action 'self'");
+    expect(e2e).not.toContain('unsafe-eval');
+  });
+});
+
 describe('no third-party script origin, in any environment', () => {
   it.each(['development', 'production'])('script-src has no external origin (%s)', (env) => {
     const scriptSrc = buildContentSecurityPolicy(env)

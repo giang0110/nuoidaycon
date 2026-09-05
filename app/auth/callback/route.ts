@@ -41,6 +41,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL(failurePath(searchParams.get('error_code')), origin));
   }
 
+  // No credential at all: someone typed the URL, or a mail client prefetched
+  // the link and stripped the query. Decide this before creating a Supabase
+  // client so the public failure path never depends on project configuration
+  // or an auth-server round trip.
+  if (!code && !(tokenHash && type)) {
+    return NextResponse.redirect(new URL('/login', origin));
+  }
+
   const supabase = await createClient();
 
   if (code) {
@@ -58,8 +66,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL(next, origin));
   }
 
-  // No credential at all: someone typed the URL, or a mail client prefetched
-  // the link and stripped the query. Neither is an error worth explaining.
+  // The guard above makes this unreachable; keep a safe fallback so future
+  // credential shapes cannot accidentally render the raw callback URL.
   return NextResponse.redirect(new URL('/login', origin));
 }
 

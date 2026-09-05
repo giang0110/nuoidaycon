@@ -29,8 +29,11 @@ export function scriptSrcFor(nodeEnv: NodeEnv): string {
   return `script-src ${sources.join(' ')}`;
 }
 
-export function buildContentSecurityPolicy(nodeEnv: NodeEnv): string {
-  return [
+export function buildContentSecurityPolicy(
+  nodeEnv: NodeEnv,
+  upgradeInsecureRequests = true,
+): string {
+  const directives = [
     "default-src 'self'",
     // Next injects inline bootstrap scripts; no external script origin is
     // allowed in any environment.
@@ -48,8 +51,14 @@ export function buildContentSecurityPolicy(nodeEnv: NodeEnv): string {
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    'upgrade-insecure-requests',
-  ].join('; ');
+  ];
+
+  // Production is HTTPS and keeps this hardening directive. The explicit E2E
+  // HTTP harness may omit it because WebKit upgrades localhost/127.0.0.1
+  // subresources and navigations to HTTPS, where the test server has no TLS.
+  if (upgradeInsecureRequests) directives.push('upgrade-insecure-requests');
+
+  return directives.join('; ');
 }
 
 export const SECURITY_HEADERS = [
