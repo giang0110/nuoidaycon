@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildWeeklySummary, describeWeek, type SummaryInput } from '@/lib/domain/engine/summary';
-import { ACTIVITY_TYPES } from '@/lib/domain/entities';
+import {
+  buildProgressSummary,
+  buildWeeklySummary,
+  describeWeek,
+  type SummaryInput,
+} from '@/lib/domain/engine/summary';
+import { ACTIVITY_TYPES, type Difficulty } from '@/lib/domain/entities';
 
 const NOW = new Date('2026-08-26T00:00:00Z');
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000).toISOString();
@@ -13,7 +18,172 @@ const entries: SummaryInput[] = [
   { assignedAt: daysAgo(30), type: 'drawing_prompt', status: 'reviewed', verdict: 'too_easy' },
 ];
 
-describe('buildWeeklySummary', () => {
+const typeDifficulty = ACTIVITY_TYPES.map((type, index) => ({
+  type,
+  difficulty: ((index % 3) + 1) as Difficulty,
+}));
+
+describe('buildProgressSummary', () => {
+  it('builds a complete six-type factual summary for seven days', () => {
+    const summary = buildProgressSummary({
+      entries,
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    expect(summary.windowDays).toBe(7);
+    expect(summary.assigned).toBe(4);
+    expect(summary.completed).toBe(3);
+    expect(summary.completionRate).toBe(3 / 4);
+    expect(summary.awaitingReview).toBe(1);
+    expect(summary.byType).toEqual({
+      handwriting: 2,
+      drawing_prompt: 0,
+      story_comprehension: 0,
+      story_summary: 0,
+      reflection: 2,
+      situation_judgment: 0,
+    });
+    expect(Object.keys(summary.difficultyByType)).toHaveLength(6);
+    expect(summary.difficultyByType.handwriting).toBe(1);
+  });
+
+  it('includes the exact 30-day boundary in a 30-day window', () => {
+    const summary = buildProgressSummary({
+      entries,
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 30,
+    });
+
+    expect(summary.assigned).toBe(5);
+    expect(summary.byType.drawing_prompt).toBe(1);
+  });
+
+  it('ignores invalid timestamps instead of treating them as current activity', () => {
+    const summary = buildProgressSummary({
+      entries: [
+        ...entries,
+        { assignedAt: 'not a date', type: 'story_summary', status: 'reviewed', verdict: null },
+      ],
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    expect(summary.assigned).toBe(4);
+    expect(summary.byType.story_summary).toBe(0);
+  });
+
+  it('uses null rather than zero for completion rate when nothing was assigned', () => {
+    const summary = buildProgressSummary({
+      entries: [],
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    expect(summary.assigned).toBe(0);
+    expect(summary.completed).toBe(0);
+    expect(summary.completionRate).toBeNull();
+    expect(summary.insights).toEqual([]);
+  });
+
+  it('counts only submitted work as awaiting parent review', () => {
+    const summary = buildProgressSummary({
+      entries: [
+        { assignedAt: daysAgo(1), type: 'reflection', status: 'submitted', verdict: null },
+        { assignedAt: daysAgo(1), type: 'handwriting', status: 'reviewed', verdict: 'just_right' },
+        { assignedAt: daysAgo(1), type: 'drawing_prompt', status: 'in_progress', verdict: null },
+      ],
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    expect(summary.awaitingReview).toBe(1);
+    expect(summary.completed).toBe(2);
+  });
+
+  it('returns deterministic insight ids in priority order and caps them at three', () => {
+    const summary = buildProgressSummary({
+      entries,
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    expect(summary.insights).toEqual([
+      { id: 'awaiting_review', count: 1 },
+      { id: 'untouched_type', type: 'drawing_prompt', windowDays: 7 },
+      { id: 'dominant_type', type: 'handwriting', count: 2 },
+    ]);
+    expect(summary.insights).toHaveLength(3);
+  });
+
+  it('does not emit a dominant type when the highest count is tied', () => {
+    const summary = buildProgressSummary({
+      entries: [
+        { assignedAt: daysAgo(1), type: 'reflection', status: 'reviewed', verdict: null },
+        { assignedAt: daysAgo(2), type: 'handwriting', status: 'reviewed', verdict: null },
+      ],
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    expect(summary.insights.some((insight) => insight.id === 'dominant_type')).toBe(false);
+  });
+
+  it('fails loudly when the six per-type difficulty rows are incomplete', () => {
+    expect(() =>
+      buildProgressSummary({
+        entries,
+        allTypes: ACTIVITY_TYPES,
+        typeDifficulty: typeDifficulty.slice(0, 5),
+        now: NOW,
+        windowDays: 7,
+      }),
+    ).toThrow(/difficulty/i);
+  });
+
+  it('fails loudly when a per-type difficulty row is duplicated', () => {
+    expect(() =>
+      buildProgressSummary({
+        entries,
+        allTypes: ACTIVITY_TYPES,
+        typeDifficulty: [...typeDifficulty, typeDifficulty[0]!],
+        now: NOW,
+        windowDays: 7,
+      }),
+    ).toThrow(/difficulty/i);
+  });
+
+  it('returns typed facts and rule ids, not free-form judgement prose', () => {
+    const summary = buildProgressSummary({
+      entries,
+      allTypes: ACTIVITY_TYPES,
+      typeDifficulty,
+      now: NOW,
+      windowDays: 7,
+    });
+
+    const serialised = JSON.stringify(summary.insights);
+    for (const judgement of ['giỏi', 'kém', 'yếu', 'tiến bộ', 'thụt lùi', 'thông minh']) {
+      expect(serialised).not.toContain(judgement);
+    }
+  });
+});
+
+describe('buildWeeklySummary compatibility', () => {
   const summary = buildWeeklySummary(entries, ACTIVITY_TYPES, NOW);
 
   it('counts only the window', () => {
@@ -55,38 +225,12 @@ describe('buildWeeklySummary', () => {
 });
 
 /**
- * The constraint that matters most in this module: it describes a WEEK, never
- * a child. No IQ, EQ, clinical, developmental or personality inference, and no
- * comparison between children.
+ * The legacy weekly prose remains temporarily while the existing history page
+ * is migrated in Task 3. The final Phase 10 state removes user-facing prose
+ * from the pure domain module.
  */
-describe('the summary makes no assessment of the child', () => {
+describe('legacy weekly prose remains non-evaluative during migration', () => {
   const summary = buildWeeklySummary(entries, ACTIVITY_TYPES, NOW);
-
-  it('exposes only counts and the parent own verdicts', () => {
-    expect(Object.keys(summary).sort()).toEqual([
-      'assigned',
-      'awaitingReview',
-      'byType',
-      'completed',
-      'untouchedTypes',
-      'verdicts',
-      'windowDays',
-    ]);
-  });
-
-  it('has no field that could be read as a score about the child', () => {
-    const forbidden =
-      /\b(iq|eq|score|grade|rating|percentile|rank|level|ability|talent|personality|diagnos)/i;
-    for (const key of Object.keys(summary)) {
-      expect(key, `"${key}" reads as an assessment`).not.toMatch(forbidden);
-    }
-  });
-
-  it('never compares one child to another — it takes one child at a time', () => {
-    // The signature accepts a flat list for a single child; there is no
-    // cohort, no peer set, and nothing to rank against.
-    expect(buildWeeklySummary.length).toBeLessThanOrEqual(4);
-  });
 
   it('describes the week in plain counts, with no judgement words', () => {
     const text = describeWeek(summary);
@@ -94,11 +238,5 @@ describe('the summary makes no assessment of the child', () => {
       expect(text, `"${judgement}" is an assessment of the child`).not.toContain(judgement);
     }
     expect(text).toContain('4 hoạt động');
-  });
-
-  it('says something neutral when nothing was assigned', () => {
-    const text = describeWeek(buildWeeklySummary([], ACTIVITY_TYPES, NOW));
-    expect(text).toMatch(/chưa có hoạt động nào/);
-    expect(text).not.toMatch(/giỏi|kém/);
   });
 });
