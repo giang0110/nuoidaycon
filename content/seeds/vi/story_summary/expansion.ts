@@ -18,7 +18,7 @@ const l1 = [
   'Nhóm của Hà muốn làm một cây cầu nhỏ bằng que gỗ.',
   'Lần đầu, các bạn xếp que rời nhau nên cầu dễ nghiêng.',
   'Hà đề nghị ghép que thành từng cụm rồi nối các cụm lại.',
-  'Cây cầu mới đứng chắc hơn, và cả nhóm ghi lại cách làm để lần sau nhớ.',
+  'Cây cầu mới chắc hơn. Cả nhóm ghi lại cách làm để lần sau nhớ.',
 ];
 
 const u1 = [
