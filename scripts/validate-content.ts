@@ -24,7 +24,7 @@ import {
 const LAUNCH_GATE = process.argv.includes('--launch');
 
 const BANDS = ['early', 'lower_primary', 'upper_primary', 'preteen'] as const;
-const MVP_TARGET_MIN = 20;
+const LAUNCH_CATALOG_TARGET = LAUNCH_FLOOR * BANDS.length;
 
 function main(): void {
   let failed = 0;
@@ -75,7 +75,9 @@ function main(): void {
 
   const total = ALL_SEEDS.length;
   const typesCovered = new Set(ALL_SEEDS.map((s) => s.type)).size;
-  console.log(`\n  total activities : ${total}   (MVP target: ${MVP_TARGET_MIN}–25)`);
+  console.log(
+    `\n  total activities : ${total}   (launch catalog target: ${LAUNCH_CATALOG_TARGET})`,
+  );
   console.log(`  activity types   : ${typesCovered}/6`);
 
   /**
@@ -120,9 +122,6 @@ function main(): void {
   const problems: string[] = [];
   if (failed > 0) problems.push(`${failed} activities failed validation`);
   if (typesCovered < 6) problems.push(`only ${typesCovered}/6 activity types have content`);
-  if (total < MVP_TARGET_MIN) {
-    problems.push(`${total} activities is below the MVP target of ${MVP_TARGET_MIN}`);
-  }
   for (const s of report.developmentShortfalls) {
     problems.push(
       `band ${s.ageBand} has ${s.have} activities, below the development floor of ${DEVELOPMENT_FLOOR}`,
@@ -139,7 +138,7 @@ function main(): void {
       `\n  ⚠ ${report.launchShortfalls.length} band(s) are below the launch floor. ` +
         `A child in the thinnest band runs out in ~${Math.min(...report.launchShortfalls.map((s) => s.have))} days.`,
     );
-    console.warn('    Run `pnpm validate:content --launch` to gate on this before opening up.');
+    console.warn('    Run `pnpm validate:content:launch` to gate on this before opening up.');
   }
 
   if (problems.length > 0) {
