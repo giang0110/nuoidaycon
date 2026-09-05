@@ -37,7 +37,7 @@ export function AuthForm({ action, fields, submitLabel, hidden }: Props) {
             autoComplete={field.autoComplete}
             required={field.required ?? true}
             minLength={field.type === 'password' ? 8 : undefined}
-            className="border-parent-border focus:border-parent-accent focus:ring-parent-accent/30 h-11 rounded-lg border px-3 py-2 text-base outline-none focus:ring-2"
+            className="border-parent-border focus:border-parent-accent focus:ring-parent-accent/30 min-h-11 rounded-lg border px-3 py-2 text-base outline-none focus:ring-2"
           />
         </label>
       ))}
@@ -56,7 +56,7 @@ export function AuthForm({ action, fields, submitLabel, hidden }: Props) {
       <button
         type="submit"
         disabled={pending}
-        className="bg-parent-accent h-11 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-60"
+        className="bg-parent-accent min-h-11 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-60"
       >
         {submitLabel}
       </button>
