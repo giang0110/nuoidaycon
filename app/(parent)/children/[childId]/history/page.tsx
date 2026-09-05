@@ -203,6 +203,7 @@ export default async function HistoryPage({ params, searchParams }: HistoryPageP
                     <span className="font-medium">{snapshot.title}</span>
                     <span className="text-parent-muted text-sm">
                       {new Date(assignment.assignedAt).toLocaleDateString('vi-VN')}
+                      {` · ${t.history[statusKey(assignment.status)]}`}
                       {verdict ? ` · ${t.review[verdictKey(verdict)]}` : ''}
                     </span>
                   </Link>
@@ -223,6 +224,16 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <span className="text-xl font-semibold">{value}</span>
     </div>
   );
+}
+
+function statusKey(
+  status: SummaryInput['status'],
+): 'statusAssigned' | 'statusInProgress' | 'statusSubmitted' | 'statusReviewed' | 'statusSkipped' {
+  if (status === 'assigned') return 'statusAssigned';
+  if (status === 'in_progress') return 'statusInProgress';
+  if (status === 'submitted') return 'statusSubmitted';
+  if (status === 'reviewed') return 'statusReviewed';
+  return 'statusSkipped';
 }
 
 function verdictKey(verdict: string): 'tooEasy' | 'justRight' | 'tooHard' {

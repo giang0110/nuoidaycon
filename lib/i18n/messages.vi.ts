@@ -229,6 +229,11 @@ export const vi = {
     insightUntouchedType: 'ngày qua chưa có hoạt động',
     insightDominantType: 'Hoạt động xuất hiện nhiều nhất là',
     insightDifficulty: 'Mức độ hiện tại của',
+    statusAssigned: 'Đã giao',
+    statusInProgress: 'Đang làm',
+    statusSubmitted: 'Đã nộp',
+    statusReviewed: 'Đã xem',
+    statusSkipped: 'Đã bỏ qua',
   },
   print: {
     date: 'Ngày',

@@ -225,6 +225,11 @@ export const en: Messages = {
     insightUntouchedType: '',
     insightDominantType: '',
     insightDifficulty: '',
+    statusAssigned: '',
+    statusInProgress: '',
+    statusSubmitted: '',
+    statusReviewed: '',
+    statusSkipped: '',
   },
   print: {
     date: '',
