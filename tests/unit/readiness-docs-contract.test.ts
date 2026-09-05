@@ -41,7 +41,9 @@ describe('production readiness documentation contract', () => {
     expect(LAUNCH).toMatch(/AI[\s\S]{0,160}(disabled|off|false)/i);
 
     for (const gate of ['Email deliverability', 'data residency', 'legal review']) {
-      const line = LAUNCH.split('\n').find((value) => value.toLowerCase().includes(gate.toLowerCase()));
+      const line = LAUNCH.split('\n').find((value) =>
+        value.toLowerCase().includes(gate.toLowerCase()),
+      );
       expect(line, `missing human gate ${gate}`).toBeDefined();
       expect(line).not.toMatch(/^- \[x\]/i);
     }
