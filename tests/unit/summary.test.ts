@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   buildProgressSummary,
   buildWeeklySummary,
-  describeWeek,
   type SummaryInput,
 } from '@/lib/domain/engine/summary';
 import { ACTIVITY_TYPES, type Difficulty } from '@/lib/domain/entities';
@@ -228,22 +227,5 @@ describe('buildWeeklySummary compatibility', () => {
       NOW,
     );
     expect(bad.assigned).toBe(0);
-  });
-});
-
-/**
- * The legacy weekly prose remains temporarily while the existing history page
- * is migrated in Task 3. The final Phase 10 state removes user-facing prose
- * from the pure domain module.
- */
-describe('legacy weekly prose remains non-evaluative during migration', () => {
-  const summary = buildWeeklySummary(entries, ACTIVITY_TYPES, NOW);
-
-  it('describes the week in plain counts, with no judgement words', () => {
-    const text = describeWeek(summary);
-    for (const judgement of ['giỏi', 'kém', 'yếu', 'tiến bộ', 'thụt lùi', 'trung bình']) {
-      expect(text, `"${judgement}" is an assessment of the child`).not.toContain(judgement);
-    }
-    expect(text).toContain('4 hoạt động');
   });
 });
