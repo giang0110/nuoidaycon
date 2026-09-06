@@ -1,12 +1,12 @@
 # Launch Readiness — gates between deployed and ready for real families
 
-**Status:** deployed; Phase 11 machine verification in progress.
+**Status:** deployed; core Phase 11 live machine checks verified, final PR/merge verification pending.
 **Updated:** 2026-09-06
 **Companion to:** [DEPLOYMENT.md](./DEPLOYMENT.md), which is the live infrastructure/runbook document.
 
-The product is deployed, but deployment is not launch approval. This document separates
-what engineering can prove read-only from what still requires a person, a real mailbox,
-a real device, a physical print, or a legal/product decision.
+The product is deployed, but deployment and machine verification are not launch approval.
+This document separates what engineering can prove read-only from what still requires a
+person, a real mailbox, a real device, a physical print, or a legal/product decision.
 
 ## 1. Readiness states
 
@@ -38,6 +38,10 @@ comprehension and story summary. `pnpm validate:content:launch` enforces the 15-
 launch floor in CI. Fifteen remains a product judgement; real retention/catalog-pressure
 data should decide the next expansion.
 
+The live Supabase catalogue was also compared read-only with the repository. A sorted
+canonical projection of `slug`, type, status, source, age range and response mode produced
+count `60` and MD5 `b8e39cea27ae52b9870ec43aa715f585` on both sides.
+
 ## 3. Product measurement
 
 Product-wide measurement stays first-party and outside the web request path:
@@ -57,8 +61,9 @@ A production state of **0 families** is a factual count, not poor performance. W
 assignment/family cohort exists, completion and week-one-return rates are `null` and the
 readiness state is `insufficient_data` — never `0%`.
 
-This distinction matters because the current product can be technically healthy before
-there is enough real-family data to judge retention.
+The live read-only baseline on 2026-09-06 is 0 families, 0 active children, 0 assignments,
+0 completed assignments and 0 active families in both 7d and 28d windows. Completion
+rate and week-one-return rate are therefore `null` / `insufficient_data`.
 
 ### Metrics reported
 
@@ -86,7 +91,7 @@ thresholds into automated pass/fail gates.
 Operator commands:
 
 ```bash
-PRODUCTION_BASE_URL=https://nuoidaycon-eight.vercel.app pnpm smoke:production --json
+PRODUCTION_BASE_URL=https://nuoidaycon.vercel.app pnpm smoke:production --json
 PRODUCTION_DATABASE_URL=<connection-string> pnpm readiness:db --json
 METRICS_DATABASE_URL=<connection-string> pnpm metrics --json
 ```
@@ -95,20 +100,23 @@ The HTTP smoke checks only unauthenticated GET requests and redirects. The datab
 readiness tool opens a read-only transaction and uses SELECT-only probes. Ordinary CI
 uses fixtures/disposable Postgres and receives no production credentials.
 
-### Pre-merge machine-verification record
+The previously documented `https://nuoidaycon-eight.vercel.app` hostname is retired and
+returned Vercel `404 DEPLOYMENT_NOT_FOUND`; it is not a valid production target. Vercel
+preview URLs are protected by Vercel SSO, so anonymous HTTP-policy smoke belongs on the
+canonical public production URL above.
 
-This section is intentionally not pre-filled. It is updated only after the Phase 11
-feature branch actually runs the live read-only checks.
+### Pre-merge machine-verification record
 
 | Check | State | Evidence |
 |---|---|---|
-| Production HTTP smoke | not yet machine-verified | Run `pnpm smoke:production --json` against the production URL |
-| Live Supabase schema/RLS/grants/catalog/Storage metadata | not yet machine-verified | Run read-only DB readiness or equivalent connected Supabase SELECTs |
-| Product metrics baseline | not yet machine-verified | Run/read equivalent first-party aggregate queries |
-| Supabase Security Advisor | not yet machine-verified | Run the hosted project security advisor |
+| Production HTTP smoke | machine-verified / pass | Exact `pnpm smoke:production --json` against `https://nuoidaycon.vercel.app` at 2026-09-06T00:17:56.796Z: 5 pass, 0 fail, `machineReady: true` |
+| Live Supabase schema/RLS/grants/catalog/Storage metadata | machine-verified / pass | Project `lpqhxznwdsbvjwglsssr` is `ACTIVE_HEALTHY`; six expected migrations, RLS/grants/security-definer posture and private 15 MiB JPEG/PNG/WebP `submissions` bucket verified with connected read-only queries |
+| Live seed catalogue | machine-verified / pass | Repo and live canonical projection both count 60 and MD5 `b8e39cea27ae52b9870ec43aa715f585` |
+| Product metrics baseline | machine-verified; rates insufficient_data | Live aggregate counts are all zero; completion/week-one-return rates have no denominator and remain `null`, not `0%` |
+| Supabase Security Advisor | machine-verified / pass | Hosted project returned 0 security lints on 2026-09-06 |
 
-No row, Auth user, Storage object or production configuration may be created merely to
-make these checks pass.
+No row, Auth user, Storage object or production configuration was created merely to make
+these checks pass.
 
 ## 5. Human-only gates
 
@@ -147,12 +155,12 @@ Content remains a long-term bottleneck. To add curated activities:
 ## 8. Gates before opening to real families
 
 - [x] Launch catalogue depth: 60 activities, 15 per band, all six types represented.
-- [ ] Phase 11 production HTTP smoke machine-verified.
-- [ ] Phase 11 live Supabase DB/catalog/security readiness machine-verified.
-- [ ] Product metrics baseline recorded with correct `null` / `insufficient_data` semantics.
+- [x] Phase 11 production HTTP smoke machine-verified.
+- [x] Phase 11 live Supabase DB/catalog/security readiness machine-verified.
+- [x] Product metrics baseline recorded with correct `null` / `insufficient_data` semantics.
 - [ ] MVP success criteria in §3 explicitly confirmed or replaced by a person.
 - [ ] Email deliverability human gate completed.
 - [ ] data residency human decision completed.
 - [ ] legal review human gate completed.
 
-The final three lines must remain unchecked until a person actually completes them.
+The final four lines must remain unchecked until a person actually completes them.
