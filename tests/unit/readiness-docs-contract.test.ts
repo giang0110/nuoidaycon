@@ -6,12 +6,18 @@ const DEPLOYMENT = readFileSync('docs/ops/DEPLOYMENT.md', 'utf8');
 const LAUNCH = readFileSync('docs/ops/LAUNCH_READINESS.md', 'utf8');
 const ENV_EXAMPLE = readFileSync('.env.example', 'utf8');
 
+const CANONICAL_PRODUCTION_URL = 'https://nuoidaycon.vercel.app';
+const RETIRED_PRODUCTION_URL = 'https://nuoidaycon-eight.vercel.app';
+
 describe('production readiness documentation contract', () => {
   it('states the real deployed production resources instead of the old pre-deploy state', () => {
     expect(README.toLowerCase()).not.toContain('production-ready, not deployed');
     expect(DEPLOYMENT).not.toContain('**NOT DEPLOYED**');
     expect(DEPLOYMENT).not.toContain('No cloud resource has been created');
-    expect(README).toContain('https://nuoidaycon-eight.vercel.app');
+    expect(README).toContain(CANONICAL_PRODUCTION_URL);
+    expect(DEPLOYMENT).toContain(CANONICAL_PRODUCTION_URL);
+    expect(README).not.toContain(RETIRED_PRODUCTION_URL);
+    expect(DEPLOYMENT).not.toContain(RETIRED_PRODUCTION_URL);
     expect(DEPLOYMENT).toContain('lpqhxznwdsbvjwglsssr');
   });
 
@@ -21,7 +27,8 @@ describe('production readiness documentation contract', () => {
     expect(DEPLOYMENT).toContain('PRODUCTION_DATABASE_URL');
     expect(DEPLOYMENT).toMatch(/PRODUCTION_DATABASE_URL[\s\S]{0,160}never[^\n]*Vercel/i);
 
-    expect(ENV_EXAMPLE).toContain('# PRODUCTION_BASE_URL="https://nuoidaycon-eight.vercel.app"');
+    expect(ENV_EXAMPLE).toContain(`# PRODUCTION_BASE_URL="${CANONICAL_PRODUCTION_URL}"`);
+    expect(ENV_EXAMPLE).not.toContain(RETIRED_PRODUCTION_URL);
     expect(ENV_EXAMPLE).toContain('# PRODUCTION_DATABASE_URL=""');
     expect(ENV_EXAMPLE).toContain('# METRICS_DATABASE_URL=""');
     expect(ENV_EXAMPLE).toMatch(/never[^\n]*Vercel/i);
