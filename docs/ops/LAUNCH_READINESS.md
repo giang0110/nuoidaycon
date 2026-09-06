@@ -1,6 +1,6 @@
 # Launch Readiness — gates between deployed and ready for real families
 
-**Status:** deployed; core Phase 11 live machine checks verified, final PR/merge verification pending.
+**Status:** deployed; Phase 11 live machine checks verified; human launch gates remain.
 **Updated:** 2026-09-06
 **Companion to:** [DEPLOYMENT.md](./DEPLOYMENT.md), which is the live infrastructure/runbook document.
 
@@ -105,7 +105,7 @@ The former `nuoidaycon-eight` Vercel hostname is retired and returned
 protected by Vercel SSO, so anonymous HTTP-policy smoke belongs on the canonical public
 production URL above.
 
-### Pre-merge machine-verification record
+### Machine-verification record
 
 | Check | State | Evidence |
 |---|---|---|
