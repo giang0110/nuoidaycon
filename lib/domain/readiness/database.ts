@@ -245,7 +245,17 @@ function evaluateCatalog(
 ): ReadinessCheck {
   const actualKeys = snapshot.catalog.map(catalogKey).sort();
   const expectedKeys = expectedCatalog
-    .map(({ ageBand: _ageBand, ...row }) => catalogKey(row))
+    .map((row) =>
+      catalogKey({
+        slug: row.slug,
+        type: row.type,
+        status: row.status,
+        source: row.source,
+        minAge: row.minAge,
+        maxAge: row.maxAge,
+        responseMode: row.responseMode,
+      }),
+    )
     .sort();
   const exactRows =
     actualKeys.length === expectedKeys.length &&
