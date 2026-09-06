@@ -31,7 +31,9 @@
     "worksheets:render": "tsx scripts/render-worksheets.ts",
     "audit:security": "tsx scripts/security-audit.ts",
     "validate:content:launch": "tsx scripts/validate-content.ts --launch",
-    "metrics": "tsx scripts/metrics.ts"
+    "metrics": "tsx scripts/metrics.ts",
+    "smoke:production": "tsx scripts/production-smoke.ts",
+    "readiness:db": "tsx scripts/production-db-readiness.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

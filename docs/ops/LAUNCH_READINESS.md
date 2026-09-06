@@ -1,101 +1,166 @@
-# Launch Readiness — content depth, metrics, and the gates between here and real families
+# Launch Readiness — gates between deployed and ready for real families
 
-**Status:** the product and launch-depth catalogue are built; measurement and operational gates remain.
-**Companion to:** [DEPLOYMENT.md](./DEPLOYMENT.md), which covers infrastructure.
+**Status:** deployed; Phase 11 live machine checks verified; human launch gates remain.
+**Updated:** 2026-09-06
+**Companion to:** [DEPLOYMENT.md](./DEPLOYMENT.md), which is the live infrastructure/runbook document.
 
-This document tracks the non-feature gates between a technically complete product and use by real families. The original review identified two gaps that ordinary test coverage could not close: insufficient content depth for one child, and no way to measure whether families return. The first is now closed; the second remains an operational launch requirement.
+The product is deployed, but deployment and machine verification are not launch approval.
+This document separates what engineering can prove read-only from what still requires a
+person, a real mailbox, a real device, a physical print, or a legal/product decision.
 
----
+## 1. Readiness states
 
-## 1. Catalogue depth
+Phase 11 uses these explicit states:
 
-The four age bands in [ACTIVITY_MODEL.md](../product/ACTIVITY_MODEL.md) do not overlap — early is 4–6, lower_primary 7–8, upper_primary 9–10, preteen 11–12. A child never draws from more than one of them, so launch depth is measured per band rather than by headline total.
+- `pass` — a machine-verifiable fact was checked and satisfied the requirement;
+- `fail` — a machine-verifiable fact was checked and violated the requirement;
+- `machine-verified` — documentation shorthand for a check that actually returned `pass`;
+- `pending_human` — automation cannot truthfully close the gate;
+- `insufficient_data` — the metric is valid, but there is not yet a denominator;
+- `not_applicable` — intentionally outside the current launch configuration.
 
-The curated Vietnamese seed catalogue now contains **60 original activities**, exactly 15 per age band:
+`pending_human` and `insufficient_data` are never converted to `pass`.
 
-| Band | Activities | Types | Days of supply |
+## 2. Catalogue depth
+
+The curated Vietnamese launch catalogue contains **60 original approved seed
+activities**, exactly 15 per age band:
+
+| Band | Activities | Types | Days of supply at one/day |
 |---|---:|---:|---:|
 | early (4–6) | 15 | 6/6 | ~15 |
 | lower_primary (7–8) | 15 | 6/6 | ~15 |
 | upper_primary (9–10) | 15 | 6/6 | ~15 |
 | preteen (11–12) | 15 | 6/6 | ~15 |
 
-Every band covers all six existing activity types: handwriting, drawing prompt, reflection, situation judgment, story comprehension, and story summary. `pnpm validate:content` prints this matrix on every run, and CI now also runs `pnpm validate:content:launch` as a mandatory gate.
+Every band covers handwriting, drawing prompt, reflection, situation judgment, story
+comprehension and story summary. `pnpm validate:content:launch` enforces the 15-per-band
+launch floor in CI. Fifteen remains a product judgement; real retention/catalog-pressure
+data should decide the next expansion.
 
-### The floors
+The live Supabase catalogue was also compared read-only with the repository. A sorted
+canonical projection of `slug`, type, status, source, age range and response mode produced
+count `60` and MD5 `b8e39cea27ae52b9870ec43aa715f585` on both sides.
 
-| Floor | Value | Enforced by | Meaning |
-|---|---|---|---|
-| Development | 3 per band | `pnpm validate:content` | Below this the engine's cooldown and novelty scoring have too little material to work with |
-| **Launch** | **15 per band** | `pnpm validate:content:launch` | ~2 weeks at one activity a day before the initial curated library is exhausted |
+## 3. Product measurement
 
-Fifteen remains a product judgement rather than a retention measurement. Revisit it once real usage data exists.
+Product-wide measurement stays first-party and outside the web request path:
 
-**Current gap to the launch floor: 0 activities.**
-
-The launch-depth gate is therefore closed for all four bands. This does not mean content work stops: the `children at ≥80% of their band` metric remains the early warning that the catalogue needs another expansion.
-
-## 2. Measurement
-
-[CHILD_SAFETY.md](../product/CHILD_SAFETY.md) §S5 bans third-party behavioural-analytics SDKs. That rule stays. Product-wide measurement is computed from first-party rows the product already writes:
-
-```
-METRICS_DATABASE_URL=<connection string> pnpm metrics
-METRICS_DATABASE_URL=<connection string> pnpm metrics --json
+```bash
+METRICS_DATABASE_URL=<connection-string> pnpm metrics
+METRICS_DATABASE_URL=<connection-string> pnpm metrics --json
 ```
 
-A **script, not a page** — RLS confines a parent to their own rows, so an in-app screen could only show one family their own numbers; product-wide aggregates need administrative credentials, and decision A3 bars those from every request path. `METRICS_DATABASE_URL` must never be set in Vercel.
+The script reads identifiers, timestamps and assignment statuses needed for aggregation;
+it does not read names, email addresses, birth months or child answer content.
+`METRICS_DATABASE_URL` is operator-only and must never be configured in Vercel.
 
-It reads ids, timestamps and statuses. Never a name, an email, a birth month, or a child's answer. The output is safe to paste into a planning document.
+### Empty-data semantics
 
-### The numbers it reports
+A production state of **0 families** is a factual count, not poor performance. When no
+assignment/family cohort exists, completion and week-one-return rates are `null` and the
+readiness state is `insufficient_data` — never `0%`.
 
-| Metric | Why it is the one that matters |
+The live read-only baseline on 2026-09-06 is 0 families, 0 active children, 0 assignments,
+0 completed assignments and 0 active families in both 7d and 28d windows. Completion
+rate and week-one-return rate are therefore `null` / `insufficient_data`.
+
+### Metrics reported
+
+| Metric | Interpretation |
 |---|---|
-| **Returned after week one** | The product's whole thesis. A family that comes back has found it useful; one that does not, has not. |
-| Active families (7d / 28d) | Denominator for everything else |
-| Completion rate | Assigned → actually finished. A low rate means the activities need investigation rather than assumptions about parents |
-| **Children at ≥80% of their band** | Leading indicator of catalogue pressure — a parent notices repeats long before any retention number moves |
+| Returned after week one | Whether an eligible family came back at any point after its first week |
+| Active families (7d / 28d) | Recent first-party activity counts |
+| Completion rate | Submitted/reviewed assignments divided by assignments, or `null` without a denominator |
+| Children at ≥80% of their band | Catalogue-pressure early warning; report only aggregate count |
 
-`null` is reported rather than `0` where there is no data yet, so "too early to tell" cannot be misread as "everybody left".
+### Proposed success criteria — still a human product decision
 
-### MVP success criteria — decide these before opening up
+These remain proposals until a person explicitly accepts/replaces them:
 
-The review found no success criteria anywhere in the documentation. Proposed, to be confirmed or replaced by a person:
+- 20 families with at least one child and one completed activity;
+- ≥60% returned after week one;
+- ≥50% completion rate;
+- zero children reaching ≥80% of their band in the first fortnight.
 
-- **20 families** with at least one child and one completed activity
-- **≥60%** returned after week one
-- **≥50%** completion rate
-- **Zero** children reaching 80% of their band inside the first fortnight
+Phase 11 reports measured values but deliberately does not turn these unconfirmed
+thresholds into automated pass/fail gates.
 
-The last one is the catalogue risk stated as a number. If it trips, the answer is more content, not more features.
+## 4. Phase 11 machine checks
 
-## 3. Content playbook
+Operator commands:
 
-Content remains a long-term bottleneck, so the process for producing it must survive one person being unavailable.
+```bash
+PRODUCTION_BASE_URL=https://nuoidaycon.vercel.app pnpm smoke:production --json
+PRODUCTION_DATABASE_URL=<connection-string> pnpm readiness:db --json
+METRICS_DATABASE_URL=<connection-string> pnpm metrics --json
+```
 
-**Authoring a new activity**
+The HTTP smoke checks only unauthenticated GET requests and redirects. The database
+readiness tool opens a read-only transaction and uses SELECT-only probes. Ordinary CI
+uses fixtures/disposable Postgres and receives no production credentials.
 
-1. Pick the band and type with the lowest remaining depth — `pnpm validate:content` shows the current matrix.
-2. Add content under `content/seeds/vi/<type>/`, reusing `envelope()` from `_shared.ts`, which fills in the audience, policy version and provenance. Keep larger expansions in a dedicated module and export them through `content/seeds/index.ts`.
-3. All content is **original**. No commercial book text, no textbook extract, no in-copyright story (CHILD_SAFETY.md §5.4).
-4. Run `pnpm validate:content`. L1 (schema), L2 (semantics) and L3 (safety) all have to pass; reading-level bands are caps, not suggestions — if a sentence is too long for the band, shorten the sentence rather than raising the cap.
-5. Run `pnpm test:unit`. Catalogue tests assert depth, uniqueness and all-six-type coverage, not just individual validity.
-6. Run `pnpm validate:content:launch` before any release that changes curated seed content.
+The former `nuoidaycon-eight` Vercel hostname is retired and returned
+`404 DEPLOYMENT_NOT_FOUND`; it is not a valid production target. Vercel preview URLs are
+protected by Vercel SSO, so anonymous HTTP-policy smoke belongs on the canonical public
+production URL above.
 
-**Reviewing**
+### Machine-verification record
 
-A second person reads it as the parent would, and asks: is the instruction something a child can follow at the intended age? Is the parent note actually useful? Would I be comfortable if this were the first thing a family saw?
+| Check | State | Evidence |
+|---|---|---|
+| Production HTTP smoke | machine-verified / pass | Exact `pnpm smoke:production --json` against `https://nuoidaycon.vercel.app` at 2026-09-06T00:17:56.796Z: 5 pass, 0 fail, `machineReady: true` |
+| Live Supabase schema/RLS/grants/catalog/Storage metadata | machine-verified / pass | Project `lpqhxznwdsbvjwglsssr` is `ACTIVE_HEALTHY`; six expected migrations, RLS/grants/security-definer posture and private 15 MiB JPEG/PNG/WebP `submissions` bucket verified with connected read-only queries |
+| Live seed catalogue | machine-verified / pass | Repo and live canonical projection both count 60 and MD5 `b8e39cea27ae52b9870ec43aa715f585` |
+| Product metrics baseline | machine-verified; rates insufficient_data | Live aggregate counts are all zero; completion/week-one-return rates have no denominator and remain `null`, not `0%` |
+| Supabase Security Advisor | machine-verified / pass | Hosted project returned 0 security lints on 2026-09-06 |
 
-**Cadence**
+No row, Auth user, Storage object or production configuration was created merely to make
+these checks pass.
 
-Use retention and catalogue-pressure metrics to set the next authoring cadence once staging/real-family data exists. An undocumented cadence is how a content bottleneck becomes a content stall.
+## 5. Human-only gates
 
-## 4. Gates before real families
+These are `pending_human`. Their unchecked state is intentional.
 
-- [x] `pnpm validate:content:launch` passes for all four age bands (60 activities; 15 per band; all six types represented)
-- [ ] MVP success criteria in §2 confirmed by a person
-- [ ] `pnpm metrics` run once against staging, so the baseline is not zero
-- [ ] Email deliverability resolved — see DEPLOYMENT.md §3.1. Currently blocked on Gmail 550 5.7.1, which is an SPF/DKIM problem on the sending domain, not a code problem
-- [ ] Q5 (data residency, Vietnam PDPD vs Singapore) decided **before** real data exists — moving it afterwards is far harder
-- [ ] COPPA-style and PDPD legal review of CHILD_SAFETY.md §8 scheduled
+- [ ] Email deliverability — real signup confirmation and password reset on Gmail and at least one non-Gmail mailbox; the previous Gmail 550 5.7.1 issue must be genuinely resolved, not inferred from DNS settings.
+- [ ] Real Auth round-trip — confirmation/recovery link returns through `/auth/callback` and establishes the expected session.
+- [ ] Two-real-parent isolation smoke — each signed-in parent sees only their own children in the live UX.
+- [ ] Real phone photo/EXIF — upload a phone photo in an appropriate test environment and inspect the stored object after server-side sanitisation.
+- [ ] Signed Storage URL TTL — verify an actual signed URL stops working after expiry.
+- [ ] Real A4 print — print a handwriting worksheet and inspect `vở ô ly` ruling, Vietnamese diacritics and pagination.
+- [ ] Data export/account deletion — verify end to end with an appropriate test family outside production unless explicitly approved otherwise.
+- [ ] data residency — decide Vietnam PDPD vs Singapore before collecting real child data at scale.
+- [ ] legal review — schedule/complete COPPA-style and Vietnam PDPD review of the child-safety/data-handling model.
+
+## 6. AI launch state
+
+AI is **disabled** for launch: `AI_GENERATION_ENABLED=false`.
+
+Parent-only generation code may exist behind mandatory parent review/approval, but Phase
+11 does not make a provider call, enable a flag, relax the content rules, or declare the
+AI activation preconditions complete. AI remains outside the launch-readiness pass set.
+
+## 7. Content playbook
+
+Content remains a long-term bottleneck. To add curated activities:
+
+1. Use `pnpm validate:content` to identify the shallowest band/type.
+2. Add original content under `content/seeds/vi/<type>/` using the existing shared envelope/provenance helpers.
+3. Do not copy commercial book/textbook/in-copyright story text.
+4. Run `pnpm validate:content` and fix L1 schema, L2 semantic and L3 safety failures at the content level.
+5. Run `pnpm test:unit` for uniqueness/coverage regressions.
+6. Run `pnpm validate:content:launch` before any release that changes curated launch content.
+7. Use the aggregate ≥80%-catalog-pressure metric to decide when another expansion is needed.
+
+## 8. Gates before opening to real families
+
+- [x] Launch catalogue depth: 60 activities, 15 per band, all six types represented.
+- [x] Phase 11 production HTTP smoke machine-verified.
+- [x] Phase 11 live Supabase DB/catalog/security readiness machine-verified.
+- [x] Product metrics baseline recorded with correct `null` / `insufficient_data` semantics.
+- [ ] MVP success criteria in §3 explicitly confirmed or replaced by a person.
+- [ ] Email deliverability human gate completed.
+- [ ] data residency human decision completed.
+- [ ] legal review human gate completed.
+
+The final four lines must remain unchecked until a person actually completes them.

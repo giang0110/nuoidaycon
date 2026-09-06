@@ -1,171 +1,216 @@
-# Deployment Readiness
+# Production Deployment & Operations
 
-**Status:** production-ready, **NOT DEPLOYED**
-**Date:** 2026-08-26
-**Scope:** Phases 0–9 of [the implementation plan](../superpowers/plans/2026-08-25-parenting-app-mvp.md)
+**Status:** deployed; Phase 11 core live machine checks verified; human launch gates remain
+**Updated:** 2026-09-06
+**Production URL:** `https://nuoidaycon.vercel.app`
+**Supabase project:** `lpqhxznwdsbvjwglsssr` — Singapore (`ap-southeast-1`)
 
-No cloud resource has been created. Everything below is what a human must do to
-put this into production, in order.
+This document is the runbook for the live deployment. Historical setup instructions
+remain where they are useful for disaster recovery or a future staging project, but they
+must not be read as evidence that production still needs to be created.
 
----
+The former `nuoidaycon-eight` Vercel hostname is retired: it returned
+`404 DEPLOYMENT_NOT_FOUND` during Phase 11 verification. Operators must use the canonical
+production URL above.
 
-## 1. Cloud resources still required
+## 1. Readiness vocabulary
 
-Nothing in this repository provisions infrastructure. These must be created by a
-person with the appropriate account:
+- **implemented** — code exists and ordinary CI covers it.
+- **deployed** — the Vercel/Supabase resource exists and serves production.
+- **machine-verified** — a Phase 11 read-only operator check actually inspected it.
+- **pending_human** — a person must perform the check; automation must not turn it into a pass.
+- **insufficient_data** — the measurement is valid but there is not yet a denominator.
 
-| Resource | Why | Notes |
+## 2. Live resources
+
+| Resource | State | Notes |
 |---|---|---|
-| **Supabase project** | Postgres, Auth, Storage | Region: Singapore unless open question **Q5** (Vietnam PDPD data residency) says otherwise. Decide before launch, not after — moving data later is far harder. |
-| **Custom SMTP provider** | Signup confirmation and password reset | Supabase's built-in sender is rate-limited and not for production. **Deliverability to Vietnamese mailboxes must be verified before launch** — a parent who cannot receive a reset email cannot use the product. |
-| **Vercel project** | Hosting | Framework preset: Next.js. Node 22. |
-| **Anthropic API key** | Phase 8 generation only | Only needed if AI is switched on. The product works fully without it. |
+| Vercel production | machine-verified | `https://nuoidaycon.vercel.app`; HTTP smoke 5/5 pass on 2026-09-06 |
+| Supabase Postgres/Auth/Storage | machine-verified | project `lpqhxznwdsbvjwglsssr`, `ACTIVE_HEALTHY`, Singapore |
+| Curated activity catalogue | machine-verified | 60 approved seed activities; live/repo canonical digest matches |
+| Supabase Security Advisor | machine-verified | 0 security lints in the live hosted project |
+| Product metrics baseline | machine-verified | 0 families, 0 children, 0 assignments; percentage rates are `null` / `insufficient_data` |
+| Custom SMTP/email deliverability | pending_human | Real Gmail and non-Gmail round-trips must still be verified |
+| Anthropic generation | implemented, disabled | `AI_GENERATION_ENABLED=false`; no live AI activation in Phase 11 |
 
-## 2. Environment variables
+### Applied production migrations
+
+The live `supabase_migrations.schema_migrations` table was inspected read-only and
+contains exactly these repository migration versions:
+
+1. `20260826000001_init.sql`
+2. `20260826000002_functions.sql`
+3. `20260826000003_rls.sql`
+4. `20260826000004_storage.sql`
+5. `20260826000005_ai_drafts.sql`
+6. `20260905045000_harden_security_definer_rpc.sql`
+
+Do not apply `supabase/tests/bootstrap.sql` to a hosted project. It is only the vanilla
+PostgreSQL shim used by the disposable integration-test database.
+
+## 3. Environment variables
 
 | Variable | Where | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Vercel (all environments) | Safe to expose. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel (all environments) | Safe to expose **because RLS constrains it**. |
-| `AI_GENERATION_ENABLED` | Vercel | `"false"` at launch. Any value other than the exact string `true` leaves generation off. |
-| `ANTHROPIC_API_KEY` | Vercel (server only) | Omit until AI is enabled. Never prefix with `NEXT_PUBLIC_`. |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Nowhere in Vercel** | Bypasses RLS entirely. Local migrations and the seed script only (decision A3). A lint rule and the security audit both enforce its absence from application code. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Vercel | Browser-safe project URL. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel | Browser-safe only because RLS/privileges constrain it. |
+| `AI_GENERATION_ENABLED` | Vercel | Must remain `"false"` for launch. |
+| `ANTHROPIC_API_KEY` | Vercel server only | Omit until every AI activation precondition is explicitly approved. |
+| `SUPABASE_SERVICE_ROLE_KEY` | operator tooling only | **Never Vercel.** Bypasses RLS. |
+| `PRODUCTION_BASE_URL` | operator shell | Public URL used by `pnpm smoke:production`. |
+| `PRODUCTION_DATABASE_URL` | operator shell only | **Never Vercel.** Used only by the read-only DB readiness command. |
+| `METRICS_DATABASE_URL` | operator shell only | **Never Vercel.** Used only by first-party aggregate metrics. |
 
-## 3. Order of operations
+Production database URLs are runtime inputs from a trusted operator shell. Never commit
+them, paste them into logs, or store them in GitHub Actions.
 
-1. **Create the Supabase project.** Note the URL and anon key.
-2. **Apply migrations in filename order** — `supabase/migrations/*.sql`, 0001 through 0005.
-   They are idempotent, so a partial run can be repeated safely.
-   *Do not* apply `supabase/tests/bootstrap.sql`: it is a local shim that recreates
-   parts of Supabase's own `auth` and `storage` schemas for testing, and it lives
-   outside `migrations/` precisely so it cannot reach a project.
-3. **Seed reference data and the catalog:**
-   ```
-   SEED_DATABASE_URL=<project connection string> pnpm db:seed
-   psql <connection string> -f supabase/seed/0001_interests.sql
-   ```
-4. **Configure Auth** — see §3.1 below. The redirect URLs are not optional:
-   an emailed link returns through `/auth/callback`, and Supabase refuses any
-   `redirectTo` that is not on the allowlist.
-5. **Verify the storage bucket** is `submissions`, private, 15 MB limit,
-   jpeg/png/webp only. Migration 0004 creates it; confirm it in the dashboard.
-6. **Deploy to Vercel** with the environment variables above.
-7. **Run the post-deploy checklist** below before giving the URL to anyone.
+## 4. Phase 11 operator checks
 
-### 3.1 Auth configuration (Dashboard)
+### 4.1 Public HTTP smoke
 
-Every emailed link — confirmation, recovery, email change — comes back through
-**`/auth/callback`**, a route handler that trades the one-time `code` (PKCE) or
-`token_hash` for a session cookie. A link pointed at a *page* cannot do that
-exchange, so these settings are load-bearing rather than cosmetic.
+```bash
+PRODUCTION_BASE_URL=https://nuoidaycon.vercel.app pnpm smoke:production
+PRODUCTION_BASE_URL=https://nuoidaycon.vercel.app pnpm smoke:production --json
+```
+
+This is unauthenticated and read-only. It checks `/`, `/login`, `/dashboard`, `/play`
+and `/settings`, validates login redirects, CSP/HSTS/frame/referrer headers,
+private/no-store semantics on protected routes, and absence of `X-Powered-By`.
+
+**Live evidence — 2026-09-06T00:17:56.796Z:** all five checks passed:
+reachability, security headers, protected-route redirects, protected-route cache policy,
+and framework-signature removal. The generated report returned `machineReady: true`.
+
+Vercel preview deployments for this project are protected by Vercel SSO, so an
+unauthenticated preview probe is intercepted before Next.js. Preview readiness is taken
+from Vercel's deployment status; public HTTP policy is verified against the canonical
+production URL.
+
+### 4.2 Database readiness
+
+```bash
+PRODUCTION_DATABASE_URL=<connection-string> pnpm readiness:db
+PRODUCTION_DATABASE_URL=<connection-string> pnpm readiness:db --json
+```
+
+The script connects once, starts `BEGIN TRANSACTION READ ONLY`, performs SELECT-only
+metadata/catalog checks, then rolls back and closes. It must never seed, migrate, repair
+or create production rows.
+
+Equivalent connected Supabase read-only probes were run for the live project during
+Phase 11. They confirmed:
+
+- the six expected migration versions and required public tables;
+- RLS enabled on the application tables and the expected force-RLS posture;
+- no public-table grants to `anon`, with authenticated grants constrained to the expected allowlist;
+- privileged helper functions in the private schema with the expected security-definer/EXECUTE posture;
+- private `submissions` bucket, 15 MiB limit, JPEG/PNG/WebP MIME allowlist;
+- 60 approved seed catalogue rows.
+
+The repository and live database were independently reduced to the same sorted canonical
+fields (`slug`, type, status, source, age range, response mode). Both produced count `60`
+and MD5 `b8e39cea27ae52b9870ec43aa715f585`.
+
+### 4.3 Product metrics
+
+```bash
+METRICS_DATABASE_URL=<connection-string> pnpm metrics
+METRICS_DATABASE_URL=<connection-string> pnpm metrics --json
+```
+
+Product metrics use first-party rows only. `0 families` is a valid count; a rate whose
+denominator does not exist is `null` / `insufficient_data`, never a fabricated `0%`.
+
+**Live baseline on 2026-09-06:** 0 families, 0 active children, 0 assignments, 0 completed
+assignments, 0 active families in 7d/28d. Completion rate and week-one return rate are
+therefore `null` / `insufficient_data`. No identity or answer content was read.
+
+### 4.4 Hosted Security Advisor
+
+The live Supabase Security Advisor was queried on 2026-09-06 and returned **0 lints**.
+This is a machine gate, not a replacement for the human cross-tenant UX check.
+
+## 5. Auth configuration runbook
+
+All emailed confirmation/recovery links return through `/auth/callback`, which exchanges
+the PKCE code or token hash for a session cookie.
 
 **Authentication → URL Configuration**
 
-| Field | Value |
+| Field | Production value |
 |---|---|
-| Site URL | `https://<domain>` |
-| Redirect URLs | `https://<domain>/auth/callback`, `https://<domain>/**`, and `http://localhost:3000/auth/callback` for local work |
+| Site URL | `https://nuoidaycon.vercel.app` |
+| Redirect URLs | `https://nuoidaycon.vercel.app/auth/callback`, `https://nuoidaycon.vercel.app/**`; keep `http://localhost:3000/auth/callback` only for local development |
 
 **Authentication → Providers → Email**
 
-| Setting | Value | Why |
-|---|---|---|
-| Email provider | ON | |
-| Confirm email | ON | The onboarding flow in UX_FLOW.md §4.1 assumes it |
-| Secure email change | ON | Confirms both the old and the new address |
-| Minimum password length | **8** | Must match the Zod schema in `app/(auth)/actions.ts`; a lower value lets the server accept what the form rejects |
+| Setting | Required value |
+|---|---|
+| Email provider | ON |
+| Confirm email | ON |
+| Secure email change | ON |
+| Minimum password length | 8 |
 
 **Authentication → Emails → SMTP Settings**
 
-| Field | Value |
-|---|---|
-| Enable Custom SMTP | ON |
-| Sender email | `no-reply@<domain>` — on a domain with SPF **and** DKIM, or Gmail will spam-folder it |
-| Sender name | `Nuôi Dạy Con` |
-| Host / Port | provider's; `587` with STARTTLS |
-| Username / Password | **entered in the Dashboard only** — never in this repository, an env var, or a chat log |
+Credentials belong in the Supabase Dashboard/provider configuration, never in this
+repository, environment examples, or chat logs. The sending domain needs correct SPF,
+DKIM and preferably DMARC. Real Gmail and non-Gmail delivery remains a human gate.
 
-**Authentication → Rate Limits.** The built-in sender allows roughly 2–4 emails
-per hour, which makes deliverability testing look broken when it is only
-throttled. Custom SMTP lifts that; set "Emails per hour" to about 30 for a
-staging project.
+## 6. Machine-checkable vs human-only post-deploy gates
 
-**Staging** is a SEPARATE Supabase project from production, with its own URL,
-anon key and SMTP sender. Nothing about this section is shared between them.
+Phase 11 has machine-verified these live facts:
 
-## 4. Post-deploy checklist
+- public production URL and login route respond;
+- protected routes redirect unauthenticated users to login;
+- CSP/HSTS/`X-Frame-Options`/`Referrer-Policy` and cache headers match policy;
+- required migrations/tables/RLS/client grants/security-definer hardening are present;
+- `submissions` bucket metadata is private with the expected size/MIME restrictions;
+- the live seed catalogue matches the canonical 60-activity metadata set;
+- aggregate launch-context counts are readable without exposing identities;
+- hosted Supabase Security Advisor reports no lints.
 
-Security and privacy:
+These remain **pending_human** until a person performs them:
 
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` is absent from every Vercel environment
-- [ ] Signing in as two separate parents, neither can see the other's children — the
-      single most important check in the product
-- [ ] An unauthenticated request to `/dashboard`, `/play` and `/print/<id>` redirects to `/login`
-- [ ] A photo's storage URL is not publicly fetchable without a signed token
-- [ ] A signed URL stops working after its TTL
-- [ ] Response headers carry the CSP, HSTS, `X-Frame-Options` and `Referrer-Policy` from `next.config.ts`
-- [ ] An uploaded photo taken on a real phone has no EXIF once stored
+- real signup confirmation and password-reset delivery on Gmail and a non-Gmail mailbox;
+- two-real-parent cross-tenant UX check;
+- upload a real phone photo and inspect the stored object for EXIF removal;
+- verify an actual signed Storage URL stops working after its TTL;
+- print a handwriting worksheet on real A4 and inspect ruling/diacritics;
+- verify data export/account deletion against a real test family in a suitable non-production environment;
+- Vietnam PDPD/Singapore data-residency decision;
+- COPPA-style/PDPD legal review.
 
-Function:
-
-- [ ] Signup → email arrives → confirm → dashboard, on a Vietnamese mailbox
-- [ ] Password reset round-trip on the same mailbox
-- [ ] Create a child, assign an activity, complete it in child mode, review it
-- [ ] Print a handwriting worksheet on real A4 and check the `vở ô ly` ruling and diacritics
-- [ ] Data export downloads and contains what it should
-- [ ] Account deletion removes rows **and** Storage objects
-
-AI (only if enabling Phase 8):
-
-- [ ] `AI_GENERATION_ENABLED=false` verified to block generation
-- [ ] Preconditions in [AI_CONTENT_RULES.md](../product/AI_CONTENT_RULES.md) §8 all hold
-- [ ] A written data-processing agreement with the model provider exists
-- [ ] One real generation reviewed end to end by a person before any parent sees the feature
-
-## 5. What CI enforces on every push
+## 7. What CI enforces on every push
 
 | Job | Checks |
 |---|---|
-| `verify` | typecheck · lint · format · provider abstraction · i18n key alignment · **security audit** · unit tests · seed content validation |
-| `database` | migrations from scratch · cross-tenant RLS matrix · schema constraints · storage policies · the meta-test that fails when a table is added without matrix coverage |
-| `e2e` | build · worksheet rendering · Playwright across mobile and desktop, including accessibility and print fidelity |
+| `verify` | typecheck · lint · format · provider abstraction · i18n alignment · security audit · unit tests · seed validation · launch catalogue depth |
+| `database` | migrations from scratch · cross-tenant RLS matrix · schema constraints · Storage policies · security-definer RPC hardening |
+| `e2e` | production build · worksheet rendering · Playwright across Chromium/WebKit, mobile/desktop and accessibility/print flows |
 
-## 6. Known gaps
+Ordinary CI deliberately does **not** receive production database credentials and does
+not call the live production database.
 
-Honest list of what has **not** been verified, and why.
+## 8. Operational runbook
 
-See also **[LAUNCH_READINESS.md](./LAUNCH_READINESS.md)** — content depth per
-age band, the product metrics script, and the gates before real families use
-this. Infrastructure readiness is not the same as product readiness, and this
-document only covers the first.
+**Disable AI immediately:** set `AI_GENERATION_ENABLED=false` and redeploy. Existing
+approved seed content is unaffected.
 
-| Gap | Reason | Before launch |
-|---|---|---|
-| **Auth flows never run against a real auth server** | No Supabase instance was reachable from the build environment; container image pulls are blocked by network policy. Redirect safety, callback routing, link-failure handling and every database rule are tested — including `/auth/callback` over HTTP; the GoTrue round-trip and the emails themselves are not. | Run the function checklist above manually, on one Gmail and one non-Gmail mailbox. |
-| **Storage upload never run against a real Storage API** | Same. `sanitiseImage` is tested with real GPS-tagged JPEGs; the upload call itself is not. | Upload a real phone photo and inspect the stored object. |
-| **No live model call** | No API key present. The pipeline is tested against a scripted provider, which is the right way to test what the pipeline *does with* a response — but the adapter itself has never spoken to the API. | One smoke test before enabling AI. |
-| **WebKit e2e not run locally** | Only Chromium was available in the build sandbox. CI installs both. | Confirm the CI e2e job is green. |
-| **Performance not measured on a real network** | No deployment. | Measure from Vietnam on 4G after the first deploy. |
-| **Legal review outstanding** | Out of engineering scope. | COPPA-style and Vietnam PDPD review of [CHILD_SAFETY.md](../product/CHILD_SAFETY.md) §8. |
-| **Catalogue too thin per age band** | The bands do not overlap, so 22 activities is 4 / 10 / 5 / 3 for four different children — an eleven-year-old exhausts the library in three days. | 38 more activities, or narrow the launch to one band. See [LAUNCH_READINESS.md](./LAUNCH_READINESS.md) §1. |
-| **No product metrics baseline** | S5 bans analytics SDKs and nothing replaced them until `pnpm metrics`. | Run it once against staging so the baseline is not zero. |
+**A parent reports unsafe content:** follow the existing content-incident process and
+archive the affected template through an authorized administrative path. Do not bypass
+RLS from an application request merely to make the incident easier to resolve.
 
-## 7. Operational runbook
+**Database recovery:** migrations are forward/idempotent scripts, not down-migrations.
+Use the Supabase backup/recovery capabilities appropriate to the project plan; never
+invent a destructive rollback in production.
 
-**Disable AI immediately:** set `AI_GENERATION_ENABLED=false` in Vercel and redeploy
-the environment variable. No code deploy needed. Existing approved content is
-unaffected.
+**Suspected data exposure:** rotate affected credentials, review relevant audit events,
+re-run Security Advisor and client-grant checks, and treat any unexpected `anon` grant or
+public Storage exposure as a release blocker.
 
-**A parent reports unsafe content:** the report lands in `content_reports`. Set the
-template's `status` to `'archived'` — it leaves the catalog at once. Assignments
-already made keep their immutable snapshot, which is correct: a child's completed
-work must not change under them. If the content must be withdrawn from a child too,
-delete the assignment.
+## 9. Remaining launch gaps
 
-**Rolling back a migration:** the migrations are additive and idempotent, with no
-down-scripts. Roll back by restoring a Supabase point-in-time backup — verify PITR
-is enabled before launch.
-
-**Suspected data exposure:** rotate the anon key, review `audit_events` for the
-affected parent ids, and check `information_schema.role_table_grants` for anything
-granted to `anon` (the security audit asserts this is empty).
+See [LAUNCH_READINESS.md](./LAUNCH_READINESS.md) for the authoritative launch gate list.
+Machine verification does not close SMTP deliverability, real-device Storage, real A4
+print, data residency or legal review.
