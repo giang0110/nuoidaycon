@@ -1,6 +1,6 @@
 # AI Readiness Hardening Design
 
-**Status:** Approved design, pending implementation-plan approval  
+**Status:** Design approved; written spec pending user review  
 **Date:** 2026-09-06  
 **Branch:** `feat/phase-12-ai-readiness-hardening`  
 **Base:** `claude/parent-learning-app-spec-andbvx` at Phase 11 merge commit `1616bfb98a2f03dce34fbf2a60e7a8dcb98dd556`
@@ -62,7 +62,7 @@ Phase 12 will:
 
 1. Add a true runtime kill switch that can stop generation without a deploy.
 2. Make per-parent and global generation quotas atomic before any provider call.
-3. Make the database the authoritative enforcement point for quota reservations.
+3. Make the database the single authoritative enforcement point for quota reservations and quota values.
 4. Align audit outcomes with the real generation lifecycle and correlate each generated draft to its reservation event.
 5. Centralize provider/model runtime configuration.
 6. Validate canonical interest slugs before generation.
@@ -114,15 +114,20 @@ Rules:
 
 This gate deliberately requires a deployment/configuration action to arm. It is the “do not accidentally run AI at all” boundary.
 
-### 6.2 Database runtime gate
+### 6.2 Database runtime configuration
 
-A new singleton runtime configuration row is introduced in PostgreSQL for emergency stop/start state. Its generation flag defaults to false in the migration.
+A new singleton runtime configuration row is introduced in PostgreSQL. It is the authoritative database source for:
 
-The application does not receive update permission on this row. Authenticated parents cannot turn the runtime gate on or off. Operators change it through controlled Supabase/Postgres administration only.
+- `generation_enabled`, default `false`;
+- parent rolling-1-hour limit, default `4`;
+- parent rolling-24-hour limit, default `10`;
+- global rolling-24-hour limit, default `5000`.
 
-The atomic reservation function reads this value inside the same transaction that checks quota. If the row is missing, unreadable, malformed, or false, the reservation is denied.
+The application receives no direct insert/update/delete permission on this row. Authenticated parents cannot change the runtime gate or quotas. Operators change them only through controlled Supabase/Postgres administration.
 
-This is the no-deploy emergency stop required by AI8.
+The atomic reservation function reads this row inside the same transaction that checks quota. If the row is missing, unreadable, malformed, or disabled, the reservation is denied.
+
+The runtime gate is the no-deploy emergency stop required by AI8. Keeping quota values in the same protected database row also prevents production drift between TypeScript constants and SQL enforcement. `lib/ai/limits.ts` no longer makes the production usage decision; the server action consumes the database reservation result.
 
 ### 6.3 Effective generation condition
 
@@ -145,15 +150,17 @@ Any failure stops before the provider call.
 
 ### 7.1 Authoritative quota semantics
 
-The production limits remain:
+Production defaults are:
 
 - parent rolling 1 hour: 4 reservations;
 - parent rolling 24 hours: 10 reservations;
 - global rolling 24 hours: 5000 reservations.
 
+The protected runtime-config row is the single production source of these values.
+
 These are request-attempt ceilings, not only successful-generation ceilings. Provider errors, schema rejections, and safety rejections still consume the reservation because provider capacity/cost was already used or attempted.
 
-Denied rate-limit checks do not consume quota.
+Denied rate-limit or disabled-runtime checks do not consume quota.
 
 ### 7.2 Reservation RPC
 
@@ -164,9 +171,10 @@ The RPC:
 - derives the parent identity from `auth.uid()`; it does not accept a caller-supplied parent id;
 - verifies the child belongs to that parent;
 - acquires a transaction-scoped advisory lock used only for the very short reservation transaction;
+- reads and validates the protected runtime configuration;
 - checks the runtime generation gate;
 - counts quota-consuming reservations in the rolling windows;
-- returns a denial reason when any ceiling is reached;
+- returns a denial reason when generation is disabled or any ceiling is reached;
 - inserts exactly one reservation event when allowed;
 - returns the reservation event id to the server action.
 
@@ -187,6 +195,7 @@ The per-parent ceilings, child-ownership check, normal signup controls, and glob
 The generation audit constraint must cover the real lifecycle:
 
 - `reserved`
+- `disabled`
 - `rate_limited`
 - `generated`
 - `schema_rejected`
@@ -204,7 +213,7 @@ No generated or rejected content is stored in the audit row. Only ids, policy/te
 Add an explicit `consumes_quota` boolean to audit events.
 
 - successful reservation: `true`;
-- rate-limited/no-template/approval/discard events: `false`;
+- disabled/rate-limited/no-template/approval/discard events: `false`;
 - finalizing a reservation changes its outcome but never changes `consumes_quota`.
 
 Quota counts use `consumes_quota = true`, not a fragile list of outcome names.
@@ -215,7 +224,7 @@ Add a hardened `public.finalize_ai_generation` RPC.
 
 It may update only a `reserved` event owned by `auth.uid()`. It records the final generation outcome, rule ids, duration, and optional generated activity-template id. It cannot transfer ownership or rewrite immutable reservation metadata.
 
-A second finalization attempt is rejected or becomes an idempotent no-op only when it exactly matches the already-recorded terminal state. The implementation plan must choose one behavior and test it consistently.
+Finalization is idempotent only for an exact replay of the already-recorded terminal state. Repeating the same terminal outcome with the same immutable correlation data succeeds without another write. Any attempt to change one terminal outcome into another is rejected.
 
 ### 8.4 Draft correlation and fail-closed persistence
 
@@ -225,7 +234,7 @@ On successful provider + L1-L3 validation:
 2. correlate that draft with the reservation event;
 3. finalize the reservation as `generated`.
 
-The schema will expose an explicit relationship between the generated draft and its generation event, implemented by a nullable foreign-key column on the AI audit event that is set only for successful generated drafts.
+The schema exposes an explicit relationship between the generated draft and its generation event, implemented by a nullable foreign-key column on the AI audit event that is set only for successful generated drafts.
 
 If draft persistence fails, finalize the reservation as `persistence_error`.
 
@@ -240,17 +249,18 @@ Approval and discard each write their own non-quota audit event tied to the acti
 1. require authenticated parent;
 2. parse the closed generation request;
 3. fetch and verify owned child;
-4. load canonical interests and reject/drop non-canonical slugs before prompt construction;
-5. resolve current difficulty;
-6. check deployment hard gate;
-7. validate provider/model configuration;
-8. resolve age policy and reviewed prompt template without calling the model;
-9. reserve quota atomically in PostgreSQL;
-10. invoke the provider once the reservation is granted;
-11. run the existing bounded generation + L1-L3 validation pipeline;
-12. persist draft on success;
-13. finalize the reservation event;
-14. return only a draft id or a safe localized error.
+4. load canonical interests and reject non-canonical slugs before prompt construction;
+5. de-duplicate canonical interest slugs and enforce the six-interest maximum;
+6. resolve current difficulty;
+7. check deployment hard gate;
+8. validate provider/model configuration;
+9. resolve age policy and reviewed prompt template without calling the model;
+10. reserve quota atomically in PostgreSQL;
+11. invoke the provider once the reservation is granted;
+12. run the existing bounded generation + L1-L3 validation pipeline;
+13. persist draft on success;
+14. finalize the reservation event;
+15. return only a draft id or a safe localized error.
 
 Provider errors, rejection details, and database details are not returned to the browser.
 
@@ -360,20 +370,22 @@ No red-team failure may be converted to a warning or auto-sanitized into assigna
 Extend the existing AI/RLS integration suite to prove:
 
 - runtime gate defaults false after a clean migration;
+- authenticated parents cannot mutate runtime configuration;
 - parent A cannot reserve for parent B's child;
-- concurrent requests at the 4/hour and 10/24h boundaries cannot exceed the limit;
-- global rolling-24h boundary cannot exceed 5000 reservations;
-- rate-limited attempts do not consume quota;
+- concurrent requests at the parent hourly and rolling-24-hour boundaries cannot exceed the configured limit;
+- concurrent requests at the global rolling-24-hour boundary cannot exceed the configured limit;
+- disabled and rate-limited attempts do not consume quota;
 - successful reservations do consume quota even when the provider later fails;
 - reservation event ownership cannot be rewritten;
 - only the owning parent can finalize their reservation;
-- finalization cannot turn a non-reserved event into a generation result;
+- an exact repeated finalization is idempotent;
+- a conflicting second finalization is rejected;
 - approved/foreign-approved assignment protections remain green;
 - expired-draft cleanup deletes only eligible rows;
 - security-definer functions have empty search paths and constrained grants;
 - the full RLS matrix remains green.
 
-The global limit test may use a test-only configurable limit or isolated database fixture rather than inserting 5000 rows if the production function can expose the same enforcement branch without weakening production defaults. The implementation plan must make this deterministic and inexpensive in CI.
+For deterministic and inexpensive concurrency tests, the disposable test database may temporarily lower the protected runtime-config limits using its database-admin test connection. The production migration defaults remain 4/hour, 10/rolling-24h, and 5000/global-rolling-24h. Application roles cannot lower or raise these values.
 
 ### 13.5 E2E
 
@@ -390,7 +402,7 @@ A real Anthropic call is not part of CI.
 
 Add `pnpm ai:readiness --json`.
 
-The command produces a report with two explicit layers.
+The command produces a report with two explicit layers and reuses the Phase 11 readiness status vocabulary where practical.
 
 ### 14.1 Technical readiness
 
@@ -435,7 +447,7 @@ production generation = off
 
 ## 15. Migration and rollout
 
-Phase 12 requires a new additive Supabase migration because atomic reservation, runtime gate, audit alignment, correlation, and cleanup are database controls.
+Phase 12 requires a new additive Supabase migration because atomic reservation, runtime configuration, audit alignment, correlation, and cleanup are database controls.
 
 Rollout order:
 
@@ -468,7 +480,7 @@ Documentation must continue to state that technical readiness does not authorize
 Phase 12 is complete when all of the following are true:
 
 - the global quota bug is eliminated;
-- concurrent quota reservations cannot exceed configured boundaries;
+- concurrent quota reservations cannot exceed database-configured boundaries;
 - a no-deploy runtime kill switch is proven in integration tests;
 - audit schema accepts and records the complete lifecycle;
 - every generated draft is correlated to a generation reservation;
