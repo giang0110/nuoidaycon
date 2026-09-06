@@ -1,0 +1,38 @@
+name: Temporary Phase 11 domain discovery
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-phase11-domain-discovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/phase-11-production-launch-readiness
+      - name: Probe likely Vercel production aliases
+        shell: bash
+        run: |
+          set -u
+          for base in \
+            https://nuoidaycon.vercel.app \
+            https://nuoidaycon-ntgiang1235.vercel.app \
+            https://nuoidaycon-ntgiang1235s-projects.vercel.app \
+            https://nuoidaycon-eight.vercel.app; do
+            echo "===== ${base} ====="
+            curl --silent --show-error --max-time 15 --output /dev/null --dump-header - "${base}/" || true
+          done
+      - name: Remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tmp-phase11-domain-discovery.yml
+          git commit -m "chore: remove temporary Phase 11 domain discovery workflow"
+          git push origin HEAD:feat/phase-11-production-launch-readiness
