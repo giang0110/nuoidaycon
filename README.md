@@ -23,23 +23,23 @@ Read these before changing anything. They are the contract, not background readi
 
 ## Status
 
-**Deployed to production; engineering launch-readiness verification is in progress.**
+**Deployed to production; core Phase 11 live machine gates are verified, with final PR/merge verification still in progress.**
 
-Production: `https://nuoidaycon-eight.vercel.app`
+Production: `https://nuoidaycon.vercel.app`
 
 The app is deployed on Vercel and backed by the live Supabase project documented in
 [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md). The curated launch catalogue contains
 60 approved Vietnamese activities, exactly 15 per age band with all six activity types
-represented in every band.
+represented in every band. The live canonical seed fields match the repository catalogue.
 
 Parents can sign up, create child profiles, browse and assign activities, hand the device
 to a child in PIN-gated child mode, review work, view 7/30-day progress insights, and
 print worksheets. Parent-only AI generation is implemented behind mandatory review and
 approval, but `AI_GENERATION_ENABLED=false` remains the launch state.
 
-Deployment is not the same as launch approval. SMTP/Auth email delivery, a real phone
-photo/EXIF check, physical A4 print fidelity, data residency and legal review remain
-human gates; see [LAUNCH_READINESS.md](docs/ops/LAUNCH_READINESS.md).
+Deployment and machine verification are not the same as launch approval. SMTP/Auth email
+delivery, a real phone photo/EXIF check, physical A4 print fidelity, data residency and
+legal review remain human gates; see [LAUNCH_READINESS.md](docs/ops/LAUNCH_READINESS.md).
 
 ## Stack
 
@@ -101,7 +101,7 @@ schemas for vanilla PostgreSQL to run the real policies. It lives outside
 These commands are operator-run release gates, not ordinary CI jobs:
 
 ```bash
-PRODUCTION_BASE_URL=https://nuoidaycon-eight.vercel.app pnpm smoke:production
+PRODUCTION_BASE_URL=https://nuoidaycon.vercel.app pnpm smoke:production
 PRODUCTION_DATABASE_URL=<connection-string> pnpm readiness:db
 METRICS_DATABASE_URL=<connection-string> pnpm metrics --json
 ```
