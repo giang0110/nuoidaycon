@@ -9,9 +9,9 @@ This document is the runbook for the live deployment. Historical setup instructi
 remain where they are useful for disaster recovery or a future staging project, but they
 must not be read as evidence that production still needs to be created.
 
-The retired hostname `https://nuoidaycon-eight.vercel.app` is not a production alias:
-it returned Vercel `404 DEPLOYMENT_NOT_FOUND` during Phase 11 verification. Operators
-must use the canonical URL above.
+The former `nuoidaycon-eight` Vercel hostname is retired: it returned
+`404 DEPLOYMENT_NOT_FOUND` during Phase 11 verification. Operators must use the canonical
+production URL above.
 
 ## 1. Readiness vocabulary
 
