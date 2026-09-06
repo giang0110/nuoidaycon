@@ -1,6 +1,6 @@
 # Production Deployment & Operations
 
-**Status:** deployed; core Phase 11 live machine checks verified, final PR/merge verification pending
+**Status:** deployed; Phase 11 core live machine checks verified; human launch gates remain
 **Updated:** 2026-09-06
 **Production URL:** `https://nuoidaycon.vercel.app`
 **Supabase project:** `lpqhxznwdsbvjwglsssr` — Singapore (`ap-southeast-1`)
