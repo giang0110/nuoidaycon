@@ -100,10 +100,10 @@ The HTTP smoke checks only unauthenticated GET requests and redirects. The datab
 readiness tool opens a read-only transaction and uses SELECT-only probes. Ordinary CI
 uses fixtures/disposable Postgres and receives no production credentials.
 
-The previously documented `https://nuoidaycon-eight.vercel.app` hostname is retired and
-returned Vercel `404 DEPLOYMENT_NOT_FOUND`; it is not a valid production target. Vercel
-preview URLs are protected by Vercel SSO, so anonymous HTTP-policy smoke belongs on the
-canonical public production URL above.
+The former `nuoidaycon-eight` Vercel hostname is retired and returned
+`404 DEPLOYMENT_NOT_FOUND`; it is not a valid production target. Vercel preview URLs are
+protected by Vercel SSO, so anonymous HTTP-policy smoke belongs on the canonical public
+production URL above.
 
 ### Pre-merge machine-verification record
 
