@@ -1,0 +1,36 @@
+name: Temporary Phase 11 preview smoke
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-phase11-preview-smoke.yml
+
+permissions:
+  contents: write
+
+jobs:
+  preview-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/phase-11-production-launch-readiness
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run exact smoke command against Vercel preview
+        env:
+          PRODUCTION_BASE_URL: https://nuoidaycon-git-feat-phase-11-production-laun-37fe6a-ntgiang1235.vercel.app
+        run: pnpm smoke:production --json
+      - name: Remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tmp-phase11-preview-smoke.yml
+          git commit -m "chore: remove temporary Phase 11 preview smoke workflow"
+          git push origin HEAD:feat/phase-11-production-launch-readiness
