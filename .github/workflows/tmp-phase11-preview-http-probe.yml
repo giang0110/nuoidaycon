@@ -1,0 +1,35 @@
+name: Temporary Phase 11 preview HTTP probe
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-phase11-preview-http-probe.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/phase-11-production-launch-readiness
+      - name: Probe Vercel preview routes
+        shell: bash
+        run: |
+          set -u
+          base='https://nuoidaycon-git-feat-phase-11-production-laun-37fe6a-ntgiang1235.vercel.app'
+          for path in / /login /dashboard /play /settings; do
+            echo "===== ${path} ====="
+            curl --silent --show-error --max-time 15 --output /dev/null --dump-header - "${base}${path}" || true
+          done
+      - name: Remove temporary workflow
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/tmp-phase11-preview-http-probe.yml
+          git commit -m "chore: remove temporary Phase 11 preview HTTP probe workflow"
+          git push origin HEAD:feat/phase-11-production-launch-readiness
