@@ -23,7 +23,7 @@ Read these before changing anything. They are the contract, not background readi
 
 ## Status
 
-**Deployed to production; core Phase 11 live machine gates are verified, with final PR/merge verification still in progress.**
+**Deployed to production; Phase 11 core live machine gates are verified. Human launch gates remain.**
 
 Production: `https://nuoidaycon.vercel.app`
 
